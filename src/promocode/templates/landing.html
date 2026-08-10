@@ -16,9 +16,14 @@
             --muted: #4a606a;
             --accent: #ff5c7a;
             --accent-deep: #e83d5f;
-            --field: rgba(255, 255, 255, 0.78);
+            --field: rgba(255, 255, 255, 0.92);
             --ring: rgba(26, 43, 51, 0.14);
             --shadow: 0 18px 40px rgba(26, 43, 51, 0.08);
+            --truck-body: #fff8fb;
+            --truck-stripe: #7fd8e2;
+            --truck-cabin: #ffe3ea;
+            --truck-metal: #d7e3e8;
+            --truck-tire: #2a3438;
         }
 
         * {
@@ -37,7 +42,7 @@
                 radial-gradient(ellipse 80% 50% at 15% 20%, rgba(255, 255, 255, 0.55), transparent 55%),
                 radial-gradient(ellipse 70% 45% at 85% 75%, rgba(255, 92, 122, 0.18), transparent 50%),
                 linear-gradient(165deg, var(--bg-top), var(--bg-mid) 48%, var(--bg-bottom));
-            overflow: hidden;
+            overflow-x: hidden;
         }
 
         .blob {
@@ -72,12 +77,12 @@
             min-height: 100%;
             display: grid;
             place-items: center;
-            padding: 1.5rem;
+            padding: 5rem 1.5rem 2rem;
             text-align: center;
         }
 
         .hero-inner {
-            width: min(100%, 34rem);
+            width: min(100%, 40rem);
             animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
@@ -91,60 +96,251 @@
         }
 
         .tagline {
-            margin: 0.85rem 0 1.75rem;
+            margin: 0.85rem 0 1.5rem;
             color: var(--muted);
             font-size: clamp(1rem, 2.5vw, 1.15rem);
             line-height: 1.45;
         }
 
+        .user-line {
+            margin: -0.5rem 0 1.25rem;
+            color: var(--ink);
+            font-weight: 600;
+        }
+
         .promo-form {
             display: flex;
-            align-items: stretch;
-            justify-content: center;
-            gap: 0.65rem;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
             width: 100%;
         }
 
-        .promo-form input {
-            flex: 1 1 auto;
-            min-width: 0;
-            width: 12ch;
-            max-width: 14rem;
-            height: 3.25rem;
-            padding: 0 0.95rem;
-            border: 1px solid var(--ring);
-            border-radius: 0.85rem;
+        /* —— Ice cream truck —— */
+        .ice-truck {
+            --truck-w: min(100%, 34rem);
+            position: relative;
+            width: var(--truck-w);
+            aspect-ratio: 16 / 9;
+            margin-inline: auto;
+            filter: drop-shadow(0 18px 24px rgba(26, 43, 51, 0.16));
+            animation: truck-idle 4.5s ease-in-out infinite;
+        }
+
+        .ice-truck__body {
+            position: absolute;
+            left: 4%;
+            right: 8%;
+            top: 28%;
+            bottom: 18%;
+            background:
+                linear-gradient(180deg, #ffffff 0%, var(--truck-body) 55%, #ffeef3 100%);
+            border: 3px solid rgba(26, 43, 51, 0.12);
+            border-radius: 1.4rem 1.1rem 0.55rem 0.55rem;
+            overflow: hidden;
+        }
+
+        .ice-truck__body::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 38%;
+            height: 18%;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--truck-stripe) 0 18px,
+                var(--accent) 18px 36px,
+                #fff6a8 36px 54px
+            );
+            opacity: 0.9;
+        }
+
+        .ice-truck__cabin {
+            position: absolute;
+            right: 0;
+            top: 22%;
+            width: 28%;
+            bottom: 18%;
+            background: linear-gradient(160deg, #fff 0%, var(--truck-cabin) 100%);
+            border: 3px solid rgba(26, 43, 51, 0.12);
+            border-left: 0;
+            border-radius: 0 1.6rem 0.55rem 0;
+        }
+
+        .ice-truck__windshield {
+            position: absolute;
+            inset: 12% 12% 38% 18%;
+            background: linear-gradient(160deg, #dff7fb 0%, #9fd0e0 100%);
+            border-radius: 0.55rem 1rem 0.35rem 0.35rem;
+            border: 2px solid rgba(26, 43, 51, 0.1);
+        }
+
+        .ice-truck__bumper {
+            position: absolute;
+            right: -2%;
+            top: 62%;
+            width: 8%;
+            height: 14%;
+            background: var(--truck-metal);
+            border-radius: 0.2rem 0.55rem 0.55rem 0.2rem;
+            border: 2px solid rgba(26, 43, 51, 0.1);
+        }
+
+        .ice-truck__scoop {
+            position: absolute;
+            left: 18%;
+            top: 6%;
+            width: 14%;
+            aspect-ratio: 1;
+            background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd0da 55%, var(--accent) 100%);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .ice-truck__scoop::after {
+            content: "";
+            position: absolute;
+            left: 28%;
+            top: 78%;
+            width: 44%;
+            height: 55%;
+            background: linear-gradient(180deg, #f6c27a, #e39b45);
+            clip-path: polygon(0 0, 100% 0, 72% 100%, 28% 100%);
+        }
+
+        .ice-truck__sign {
+            position: absolute;
+            left: 8%;
+            top: 12%;
+            z-index: 2;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: #fff;
+            border: 2px solid rgba(26, 43, 51, 0.08);
+            font-family: Sora, sans-serif;
+            font-size: clamp(0.55rem, 1.8vw, 0.75rem);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: var(--accent-deep);
+            transform: rotate(-6deg);
+        }
+
+        /* Service opening where ice cream is handed out */
+        .ice-truck__bay {
+            position: absolute;
+            left: 12%;
+            top: 42%;
+            width: 48%;
+            height: 36%;
+            z-index: 3;
+            background: linear-gradient(180deg, #1f3138 0%, #314851 100%);
+            border-radius: 0.35rem 0.35rem 0.2rem 0.2rem;
+            border: 2px solid rgba(26, 43, 51, 0.25);
+            display: grid;
+            place-items: center;
+            padding: 0.35rem 0.45rem 0.4rem;
+        }
+
+        .ice-truck__bay input {
+            width: 100%;
+            height: 100%;
+            min-height: 2.4rem;
+            border: 0;
+            border-radius: 0.35rem;
             background: var(--field);
-            backdrop-filter: blur(8px);
-            box-shadow: var(--shadow);
             color: var(--ink);
             font-family: Sora, sans-serif;
-            font-size: 1.15rem;
+            font-size: clamp(0.85rem, 2.6vw, 1.15rem);
             font-weight: 700;
-            letter-spacing: 0.28em;
+            letter-spacing: 0.22em;
             text-align: center;
             text-transform: uppercase;
             outline: none;
-            transition: border-color 180ms ease, transform 180ms ease;
         }
 
-        .promo-form input::placeholder {
-            letter-spacing: 0.18em;
+        .ice-truck__bay input::placeholder {
+            letter-spacing: 0.12em;
             color: #8aa0aa;
             text-transform: none;
             font-weight: 500;
-            font-size: 0.85rem;
+            font-size: 0.78em;
         }
 
-        .promo-form input:focus {
-            border-color: var(--accent);
-            transform: translateY(-1px);
+        .ice-truck__bay input:focus {
+            box-shadow: inset 0 0 0 2px var(--accent);
         }
 
-        .promo-form button {
+        /* Awning — separate entity above the bay */
+        .ice-truck__awning {
+            position: absolute;
+            left: 9%;
+            top: 30%;
+            width: 54%;
+            height: 16%;
+            z-index: 4;
+            transform-origin: 50% 0%;
+            animation: awning-sway 3.8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .ice-truck__awning-top {
+            position: absolute;
+            inset: 0 0 35% 0;
+            background: linear-gradient(180deg, #fff 0%, #ffe6ec 100%);
+            border: 2px solid rgba(26, 43, 51, 0.1);
+            border-radius: 0.45rem 0.45rem 0.15rem 0.15rem;
+            box-shadow: 0 6px 12px rgba(26, 43, 51, 0.12);
+        }
+
+        .ice-truck__awning-valance {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 55%;
+            background:
+                radial-gradient(circle at 50% 0, var(--accent) 0 58%, transparent 59%) 0 0 / 12.5% 100% repeat-x,
+                radial-gradient(circle at 50% 0, var(--truck-stripe) 0 58%, transparent 59%) 6.25% 0 / 12.5% 100% repeat-x;
+        }
+
+        .ice-truck__wheel {
+            position: absolute;
+            bottom: 4%;
+            width: 11%;
+            aspect-ratio: 1;
+            background:
+                radial-gradient(circle at center, #cfd8dc 0 22%, transparent 23%),
+                radial-gradient(circle at center, #6b767b 0 38%, var(--truck-tire) 39% 72%, #1a2225 73%);
+            border-radius: 50%;
+            border: 2px solid rgba(26, 43, 51, 0.2);
+            z-index: 5;
+        }
+
+        .ice-truck__wheel--front {
+            right: 14%;
+        }
+
+        .ice-truck__wheel--rear {
+            left: 18%;
+        }
+
+        .ice-truck__ground {
+            position: absolute;
+            left: 8%;
+            right: 6%;
+            bottom: 7%;
+            height: 4%;
+            background: rgba(26, 43, 51, 0.08);
+            border-radius: 999px;
+            filter: blur(2px);
+            z-index: 1;
+        }
+
+        .promo-form > button {
             flex: 0 0 auto;
             height: 3.25rem;
-            padding: 0 1.25rem;
+            padding: 0 1.5rem;
             border: 0;
             border-radius: 0.85rem;
             background: var(--accent);
@@ -158,12 +354,12 @@
             transition: background 160ms ease, transform 160ms ease;
         }
 
-        .promo-form button:hover {
+        .promo-form > button:hover {
             background: var(--accent-deep);
             transform: translateY(-1px);
         }
 
-        .promo-form button:active {
+        .promo-form > button:active {
             transform: translateY(0);
         }
 
@@ -222,10 +418,16 @@
             transform: translateY(-1px);
         }
 
-        .user-line {
-            margin: -0.5rem 0 1.25rem;
-            color: var(--ink);
-            font-weight: 600;
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         @keyframes rise {
@@ -244,21 +446,17 @@
             to { transform: translate(1.5rem, 1rem) scale(1.06); }
         }
 
+        @keyframes truck-idle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        @keyframes awning-sway {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(-1.2deg); }
+        }
+
         @media (max-width: 480px) {
-            .promo-form {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .promo-form input {
-                max-width: none;
-                width: 100%;
-            }
-
-            .promo-form button {
-                width: 100%;
-            }
-
             .topbar {
                 flex-wrap: wrap;
             }
@@ -266,6 +464,10 @@
             .topbar-user {
                 width: 100%;
                 margin: 0 0 0.35rem;
+            }
+
+            .ice-truck__bay input {
+                letter-spacing: 0.14em;
             }
         }
     </style>
@@ -297,38 +499,46 @@
 
             <form class="promo-form" id="promo-form">
                 {% csrf_token %}
-                <label class="visually-hidden" for="promo-code">Промокод</label>
-                <input
-                    id="promo-code"
-                    name="code"
-                    type="text"
-                    maxlength="8"
-                    minlength="8"
-                    pattern="([A-Z]{8}|[0-9]{8})"
-                    inputmode="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="8 символов"
-                    required
-                >
+                <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
+                    <div class="ice-truck__scoop" aria-hidden="true"></div>
+                    <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
+                    <div class="ice-truck__body" aria-hidden="true"></div>
+                    <div class="ice-truck__cabin" aria-hidden="true">
+                        <div class="ice-truck__windshield"></div>
+                    </div>
+                    <div class="ice-truck__bumper" aria-hidden="true"></div>
+                    <div class="ice-truck__ground" aria-hidden="true"></div>
+                    <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
+                    <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
+
+                    <div class="ice-truck__bay">
+                        <label class="visually-hidden" for="promo-code">Промокод</label>
+                        <input
+                            id="promo-code"
+                            name="code"
+                            type="text"
+                            maxlength="8"
+                            minlength="8"
+                            pattern="([A-Z]{8}|[0-9]{8})"
+                            inputmode="text"
+                            autocomplete="off"
+                            spellcheck="false"
+                            placeholder="8 символов"
+                            required
+                        >
+                    </div>
+
+                    <div class="ice-truck__awning" aria-hidden="true">
+                        <div class="ice-truck__awning-top"></div>
+                        <div class="ice-truck__awning-valance"></div>
+                    </div>
+                </div>
+
                 <button type="submit">Отправить</button>
             </form>
         </div>
     </main>
 
-    <style>
-        .visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-    </style>
     <script>
         const form = document.getElementById('promo-form');
         const input = document.getElementById('promo-code');
