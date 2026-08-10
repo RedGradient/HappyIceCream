@@ -1,0 +1,22 @@
+[tool.ruff]
+target-version = "py313"
+src = ["src"]
+line-length = 88
+exclude = [
+    "**/migrations/**",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "RUF001", # омоглифы в строках (кириллица vs латиница: В/B, с/c и т.д.)
+    "RUF002", # омоглифы в docstring
+    "RUF003", # омоглифы в комментариях
+    "SIM108", # не навязывать тернарный оператор вместо if/else
+]
