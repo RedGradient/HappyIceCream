@@ -280,17 +280,48 @@
             height: 16%;
             z-index: 4;
             transform-origin: 50% 0%;
-            animation: awning-sway 3.8s ease-in-out infinite;
+            transition: transform 450ms ease, height 450ms ease, top 450ms ease;
             pointer-events: none;
+        }
+
+        .ice-truck.is-open .ice-truck__awning {
+            transform: translateY(0);
+            animation: awning-sway 3.8s ease-in-out infinite;
+        }
+
+        .ice-truck.is-closed .ice-truck__awning {
+            top: 34%;
+            height: 34%;
+            transform: translateY(18%);
+            animation: none;
+            pointer-events: auto;
+        }
+
+        .ice-truck.is-closed .ice-truck__bay input {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .ice-truck.is-closed ~ button {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         .ice-truck__awning-top {
             position: absolute;
             inset: 0 0 35% 0;
+            display: grid;
+            place-items: center;
             background: linear-gradient(180deg, #fff 0%, #ffe6ec 100%);
             border: 2px solid rgba(26, 43, 51, 0.1);
             border-radius: 0.45rem 0.45rem 0.15rem 0.15rem;
             box-shadow: 0 6px 12px rgba(26, 43, 51, 0.12);
+            transition: inset 450ms ease;
+            overflow: hidden;
+        }
+
+        .ice-truck.is-closed .ice-truck__awning-top {
+            inset: 0 0 22% 0;
         }
 
         .ice-truck__awning-valance {
@@ -302,6 +333,59 @@
             background:
                 radial-gradient(circle at 50% 0, var(--accent) 0 58%, transparent 59%) 0 0 / 12.5% 100% repeat-x,
                 radial-gradient(circle at 50% 0, var(--truck-stripe) 0 58%, transparent 59%) 6.25% 0 / 12.5% 100% repeat-x;
+            transition: height 450ms ease;
+        }
+
+        .ice-truck.is-closed .ice-truck__awning-valance {
+            height: 28%;
+        }
+
+        .awning-actions {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            padding: 0.35rem;
+            width: 100%;
+        }
+
+        .ice-truck.is-closed .awning-actions {
+            display: flex;
+        }
+
+        .awning-actions a {
+            flex: 1 1 0;
+            max-width: 9rem;
+            padding: 0.45rem 0.55rem;
+            border-radius: 0.55rem;
+            font-family: Sora, sans-serif;
+            font-size: clamp(0.65rem, 1.8vw, 0.82rem);
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            transition: background 160ms ease, transform 160ms ease, color 160ms ease;
+        }
+
+        .awning-actions .btn-ghost {
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(26, 43, 51, 0.12);
+        }
+
+        .awning-actions .btn-ghost:hover {
+            color: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .awning-actions .btn-solid {
+            color: #fff;
+            background: var(--accent);
+            box-shadow: 0 8px 16px rgba(232, 61, 95, 0.22);
+        }
+
+        .awning-actions .btn-solid:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
         }
 
         .ice-truck__wheel {
@@ -483,9 +567,6 @@
                 {% csrf_token %}
                 <button class="btn-solid" type="submit">Выйти</button>
             </form>
-        {% else %}
-            <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
-            <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
         {% endif %}
     </header>
 
@@ -499,7 +580,7 @@
 
             <form class="promo-form" id="promo-form">
                 {% csrf_token %}
-                <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
+                <div class="ice-truck {% if user.is_authenticated %}is-open{% else %}is-closed{% endif %}" role="group" aria-label="Фургон с полем промокода">
                     <div class="ice-truck__scoop" aria-hidden="true"></div>
                     <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
                     <div class="ice-truck__body" aria-hidden="true"></div>
@@ -523,18 +604,26 @@
                             inputmode="text"
                             autocomplete="off"
                             spellcheck="false"
-                            placeholder="8 символов"
-                            required
+                            placeholder="{% if user.is_authenticated %}8 символов{% else %}войдите{% endif %}"
+                            {% if not user.is_authenticated %}disabled{% endif %}
+                            {% if user.is_authenticated %}required{% endif %}
                         >
                     </div>
 
-                    <div class="ice-truck__awning" aria-hidden="true">
-                        <div class="ice-truck__awning-top"></div>
+                    <div class="ice-truck__awning" aria-hidden="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+                        <div class="ice-truck__awning-top">
+                            {% if not user.is_authenticated %}
+                                <div class="awning-actions">
+                                    <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
+                                    <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
+                                </div>
+                            {% endif %}
+                        </div>
                         <div class="ice-truck__awning-valance"></div>
                     </div>
                 </div>
 
-                <button type="submit">Отправить</button>
+                <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
             </form>
         </div>
     </main>
@@ -546,6 +635,9 @@
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
+            if (input.disabled) {
+                return;
+            }
 
             const code = input.value.trim().toUpperCase();
 
