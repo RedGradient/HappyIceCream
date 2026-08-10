@@ -229,46 +229,63 @@
         /* Service opening where ice cream is handed out */
         .ice-truck__bay {
             position: absolute;
-            left: 12%;
-            top: 46%;
-            width: 48%;
-            height: 15%;
+            left: 10%;
+            top: 45%;
+            width: 52%;
+            height: 18%;
             z-index: 3;
             background: linear-gradient(180deg, #1f3138 0%, #314851 100%);
             border-radius: 0.35rem 0.35rem 0.2rem 0.2rem;
             border: 2px solid rgba(26, 43, 51, 0.25);
             display: grid;
             place-items: center;
-            padding: 0.28rem 0.45rem 0.32rem;
+            padding: 0.28rem 0.4rem;
         }
 
-        .ice-truck__bay input {
+        .promo-otp {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 0.22rem;
             width: 100%;
             height: 100%;
-            min-height: 2rem;
+        }
+
+        .promo-otp__cell {
+            width: 100%;
+            min-width: 0;
+            height: 100%;
+            min-height: 1.8rem;
             border: 0;
-            border-radius: 0.35rem;
+            border-radius: 0.28rem;
             background: var(--field);
             color: var(--ink);
             font-family: Sora, sans-serif;
-            font-size: clamp(1rem, 2.8vw, 1.35rem);
+            font-size: clamp(0.7rem, 2.1vw, 1.05rem);
             font-weight: 700;
-            letter-spacing: 0.22em;
             text-align: center;
             text-transform: uppercase;
             outline: none;
+            caret-color: var(--accent);
         }
 
-        .ice-truck__bay input::placeholder {
-            letter-spacing: 0.12em;
-            color: #8aa0aa;
-            text-transform: none;
-            font-weight: 500;
-            font-size: 0.78em;
-        }
-
-        .ice-truck__bay input:focus {
+        .promo-otp__cell:focus {
             box-shadow: inset 0 0 0 2px var(--accent);
+        }
+
+        .promo-otp__cell::placeholder {
+            color: #9aafb8;
+            opacity: 1;
+            font-weight: 600;
+        }
+
+        .ice-truck.is-closed .promo-otp__cell {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .ice-truck.is-closed ~ button {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         /* Awning — separate entity above the bay */
@@ -295,16 +312,6 @@
             transform: translateY(18%);
             animation: none;
             pointer-events: auto;
-        }
-
-        .ice-truck.is-closed .ice-truck__bay input {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .ice-truck.is-closed ~ button {
-            opacity: 0.55;
-            cursor: not-allowed;
         }
 
         .ice-truck__awning-top {
@@ -593,21 +600,22 @@
                     <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
 
                     <div class="ice-truck__bay">
-                        <label class="visually-hidden" for="promo-code">Промокод</label>
-                        <input
-                            id="promo-code"
-                            name="code"
-                            type="text"
-                            maxlength="8"
-                            minlength="8"
-                            pattern="([A-Z]{8}|[0-9]{8})"
-                            inputmode="text"
-                            autocomplete="off"
-                            spellcheck="false"
-                            placeholder="{% if user.is_authenticated %}8 символов{% else %}войдите{% endif %}"
-                            {% if not user.is_authenticated %}disabled{% endif %}
-                            {% if user.is_authenticated %}required{% endif %}
-                        >
+                        <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                            {% for i in "01234567" %}
+                                <input
+                                    class="promo-otp__cell"
+                                    type="text"
+                                    maxlength="1"
+                                    inputmode="text"
+                                    autocomplete="one-time-code"
+                                    spellcheck="false"
+                                    placeholder="·"
+                                    aria-label="Символ {{ forloop.counter }}"
+                                    {% if not user.is_authenticated %}disabled{% endif %}
+                                    {% if forloop.first %}id="promo-code-0"{% endif %}
+                                >
+                            {% endfor %}
+                        </div>
                     </div>
 
                     <div class="ice-truck__awning" aria-hidden="{% if user.is_authenticated %}true{% else %}false{% endif %}">
@@ -630,16 +638,74 @@
 
     <script>
         const form = document.getElementById('promo-form');
-        const input = document.getElementById('promo-code');
+        const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
         const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+        const codePattern = /^([A-Z]{8}|[0-9]{8})$/;
+
+        function getCode() {
+            return cells.map((cell) => cell.value).join('').toUpperCase();
+        }
+
+        function sanitizeChar(value) {
+            const char = (value || '').slice(-1).toUpperCase();
+            return /^[A-Z0-9]$/.test(char) ? char : '';
+        }
+
+        function fillFromString(text, startIndex = 0) {
+            const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, cells.length - startIndex);
+            chars.split('').forEach((char, offset) => {
+                const index = startIndex + offset;
+                if (cells[index]) {
+                    cells[index].value = char;
+                }
+            });
+            const focusIndex = Math.min(startIndex + chars.length, cells.length - 1);
+            cells[focusIndex]?.focus();
+        }
+
+        cells.forEach((cell, index) => {
+            cell.addEventListener('input', () => {
+                const char = sanitizeChar(cell.value);
+                cell.value = char;
+                if (char && index < cells.length - 1) {
+                    cells[index + 1].focus();
+                }
+            });
+
+            cell.addEventListener('keydown', (event) => {
+                if (event.key === 'Backspace' && !cell.value && index > 0) {
+                    cells[index - 1].focus();
+                    cells[index - 1].value = '';
+                    event.preventDefault();
+                }
+                if (event.key === 'ArrowLeft' && index > 0) {
+                    cells[index - 1].focus();
+                    event.preventDefault();
+                }
+                if (event.key === 'ArrowRight' && index < cells.length - 1) {
+                    cells[index + 1].focus();
+                    event.preventDefault();
+                }
+            });
+
+            cell.addEventListener('paste', (event) => {
+                event.preventDefault();
+                const text = event.clipboardData?.getData('text') || '';
+                fillFromString(text, index);
+            });
+        });
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (input.disabled) {
+            if (cells.some((cell) => cell.disabled)) {
                 return;
             }
 
-            const code = input.value.trim().toUpperCase();
+            const code = getCode();
+            if (!codePattern.test(code)) {
+                cells[0]?.focus();
+                return;
+            }
 
             const response = await fetch('/promocode', {
                 method: 'POST',
