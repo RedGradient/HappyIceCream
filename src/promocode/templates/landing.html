@@ -167,6 +167,67 @@
             transform: translateY(0);
         }
 
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .topbar-user {
+            margin-right: auto;
+            color: var(--ink);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .topbar a,
+        .topbar button {
+            font-family: Sora, sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: 0;
+            cursor: pointer;
+            transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+        }
+
+        .topbar .btn-ghost {
+            color: var(--ink);
+            background: transparent;
+            padding: 0.55rem 0.85rem;
+        }
+
+        .topbar .btn-ghost:hover {
+            color: var(--accent-deep);
+        }
+
+        .topbar .btn-solid {
+            color: #fff;
+            background: var(--accent);
+            padding: 0.55rem 1rem;
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .topbar .btn-solid:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .user-line {
+            margin: -0.5rem 0 1.25rem;
+            color: var(--ink);
+            font-weight: 600;
+        }
+
         @keyframes rise {
             from {
                 opacity: 0;
@@ -197,6 +258,15 @@
             .promo-form button {
                 width: 100%;
             }
+
+            .topbar {
+                flex-wrap: wrap;
+            }
+
+            .topbar-user {
+                width: 100%;
+                margin: 0 0 0.35rem;
+            }
         }
     </style>
 </head>
@@ -204,10 +274,26 @@
     <div class="blob blob-a" aria-hidden="true"></div>
     <div class="blob blob-b" aria-hidden="true"></div>
 
+    <header class="topbar">
+        {% if user.is_authenticated %}
+            <span class="topbar-user">{{ user.get_full_name|default:user.username }}</span>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button class="btn-solid" type="submit">Выйти</button>
+            </form>
+        {% else %}
+            <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
+            <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
+        {% endif %}
+    </header>
+
     <main class="hero">
         <div class="hero-inner">
             <h1 class="brand">Happy Ice Cream</h1>
             <p class="tagline">Введите промокод для участия в розыгрыше!</p>
+            {% if user.is_authenticated %}
+                <p class="user-line">Вы вошли как {{ user.username }}</p>
+            {% endif %}
 
             <form class="promo-form" id="promo-form">
                 {% csrf_token %}
