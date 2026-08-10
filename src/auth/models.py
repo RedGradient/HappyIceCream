@@ -8,6 +8,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
     middle_name = models.CharField(max_length=150, null=True, blank=True)
+    email_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

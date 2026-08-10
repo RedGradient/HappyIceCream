@@ -53,10 +53,3 @@ class SignUpForm(forms.ModelForm):
         if password and password_confirm and password != password_confirm:
             self.add_error("password_confirm", "Пароли не совпадают.")
         return cleaned
-
-    def save(self, commit: bool = True):
-        user = super().save(commit=False)
-        user.set_password(self.cleaned_data["password"])
-        if commit:
-            user.save()
-        return user
