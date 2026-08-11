@@ -88,6 +88,19 @@ class WinnerService:
         return unused_promos.order_by("id").first()
 
     def get_random_winner(self) -> UserPromocode:
+        """
+        Случайным образом выбирает победителя розыгрыша за текущий день.
+
+        Берёт случайный ещё не разыгранный промокод, ищет пользователя,
+        который его применил, отмечает победу и помечает промокод как is_drawn.
+
+        Raises:
+            WinnerAlreadySelectedToday: победитель на сегодня уже выбран.
+            NoWinnerFound: не удалось найти подходящего кандидата.
+
+        Returns:
+            Запись UserPromocode победителя.
+        """
         # Проверяем, есть ли победитель за сегодня
         if UserPromocode.objects.filter(won_on=timezone.localdate()).exists():
             raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")

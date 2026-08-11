@@ -1,0 +1,22 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<form method="post" action="{% url 'admin:pick_random_winner' %}" style="margin-bottom: 1.5rem;">
+    {% csrf_token %}
+    <button
+        type="submit"
+        class="button"
+        style="
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 0.85rem 1.75rem;
+            min-width: 16rem;
+            cursor: pointer;
+        "
+    >
+        Выбрать победителя
+    </button>
+</form>
+
+{{ block.super }}
+{% endblock %}
