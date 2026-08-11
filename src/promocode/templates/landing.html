@@ -19,6 +19,7 @@
             --field: rgba(255, 255, 255, 0.92);
             --ring: rgba(26, 43, 51, 0.14);
             --shadow: 0 18px 40px rgba(26, 43, 51, 0.08);
+            --danger: #c62828;
             --truck-body: #fff8fb;
             --truck-stripe: #7fd8e2;
             --truck-cabin: #ffe3ea;
@@ -454,6 +455,24 @@
             transform: translateY(0);
         }
 
+        .promo-form__message {
+            flex: 1 0 100%;
+            margin: 0;
+            min-height: 1.25rem;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .promo-form__message.is-success {
+            color: #1b7a4a;
+        }
+
+        .promo-form__message:empty {
+            display: none;
+        }
+
         .winners {
             width: min(100%, 22rem);
             margin: 1.75rem auto 0;
@@ -695,6 +714,7 @@
                 </div>
 
                 <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
+                <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
             </form>
 
             <section class="winners" aria-label="Победители розыгрыша">
@@ -726,8 +746,30 @@
     <script>
         const form = document.getElementById('promo-form');
         const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
+        const messageEl = document.getElementById('promo-message');
         const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
         const codePattern = /^([A-Z]{8}|[0-9]{8})$/;
+
+        function setMessage(text, { success = false } = {}) {
+            messageEl.textContent = text || '';
+            messageEl.classList.toggle('is-success', Boolean(success && text));
+        }
+
+        function getErrorMessage(payload) {
+            if (!payload || typeof payload !== 'object') {
+                return 'Не удалось отправить промокод';
+            }
+            if (typeof payload.detail === 'string') {
+                return payload.detail;
+            }
+            if (Array.isArray(payload.detail)) {
+                return payload.detail.map((item) => item?.string || item).join(' ');
+            }
+            if (payload.code) {
+                return Array.isArray(payload.code) ? payload.code[0] : payload.code;
+            }
+            return 'Не удалось отправить промокод';
+        }
 
         function getCode() {
             return cells.map((cell) => cell.value).join('').toUpperCase();
@@ -790,9 +832,12 @@
 
             const code = getCode();
             if (!codePattern.test(code)) {
+                setMessage('Промокод должен состоять из 8 букв или 8 цифр');
                 cells[0]?.focus();
                 return;
             }
+
+            setMessage('');
 
             const response = await fetch('/promocode', {
                 method: 'POST',
@@ -803,13 +848,14 @@
                 body: JSON.stringify({ code }),
             });
 
+            const payload = await response.json().catch(() => ({}));
+
             if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                console.error(error);
+                setMessage(getErrorMessage(payload));
                 return;
             }
 
-            await response.json();
+            setMessage('Промокод принят', { success: true });
         });
     </script>
 </body>

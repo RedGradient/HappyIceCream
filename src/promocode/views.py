@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -8,8 +7,6 @@ from rest_framework.response import Response
 from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExists
 from promocode.serializers import PromoCodeSerializer
 from promocode.services import PromoCodeService, WinnerService
-
-User = get_user_model()
 
 
 def landing(request):
@@ -25,6 +22,14 @@ def apply_promocode(request):
     # Валидация промокода
     code_serializer = PromoCodeSerializer(data=request.data)
     code_serializer.is_valid(raise_exception=True)
+
+    # Проверяем наличие у пользователя фамилии и имени перед применением промокода
+    user = request.user
+    if not (user.first_name and user.last_name):
+        return Response(
+            {"detail": "Для отправки промокода необходимо указать фамилию и имя"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     try:
         code = code_serializer.validated_data["code"]
