@@ -25,6 +25,7 @@ class UserPromocode(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.BigIntegerField(db_index=True)
     promocode_id = models.BigIntegerField(
+        unique=True,
         db_index=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
