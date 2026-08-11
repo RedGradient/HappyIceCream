@@ -3,7 +3,7 @@ from rest_framework import serializers
 from promocode.models import PromoCode
 
 
-class PromoCodeSerializer(serializers.ModelSerializer):
+class PromoCodeSerializer(serializers.Serializer):
     code = serializers.RegexField(
         regex=r"^([A-Z]{8}|[0-9]{8})$",
         max_length=8,
