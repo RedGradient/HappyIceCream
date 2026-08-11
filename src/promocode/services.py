@@ -1,9 +1,11 @@
 import logging
+from typing import Any
 
 from django.db import IntegrityError
 
+from auth.models import User
 from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExists
-from promocode.models import PromoCode, UserPromocode
+from promocode.models import PromoCode, UserPromocode, Winner
 
 logger = logging.getLogger(__name__)
 
@@ -49,3 +51,14 @@ class PromoCodeService:
             promocode.id,
         )
         return user_promocode
+
+
+class WinnerService:
+    def winner_landing_list(self, limit: int) -> list[dict[str, Any]]:
+        all_winners = Winner.objects.order_by("-won_on")[:limit]
+        users = User.objects.in_bulk([row.user_id for row in all_winners])
+
+        return [
+            {"won_on": row.won_on, "name": users[row.user_id].get_full_name()}
+            for row in all_winners
+        ]

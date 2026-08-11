@@ -31,7 +31,7 @@
         }
 
         html, body {
-            height: 100%;
+            min-height: 100%;
             margin: 0;
         }
 
@@ -454,6 +454,69 @@
             transform: translateY(0);
         }
 
+        .winners {
+            width: min(100%, 22rem);
+            margin: 1.75rem auto 0;
+            text-align: left;
+        }
+
+        .winners__title {
+            margin: 0 0 0.75rem;
+            font-family: Sora, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+
+        .winners__table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow);
+            border-radius: 0.85rem;
+            overflow: hidden;
+        }
+
+        .winners__table th,
+        .winners__table td {
+            padding: 0.65rem 0.9rem;
+            font-size: 0.92rem;
+        }
+
+        .winners__table th {
+            font-family: Sora, sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .winners__table td:first-child,
+        .winners__table th:first-child {
+            width: 35%;
+            white-space: nowrap;
+            color: var(--muted);
+        }
+
+        .winners__table tbody tr + tr td {
+            border-top: 1px solid rgba(26, 43, 51, 0.08);
+        }
+
+        .winners__empty {
+            margin: 0;
+            padding: 0.9rem;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.92rem;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
         .topbar {
             position: fixed;
             top: 0;
@@ -633,6 +696,30 @@
 
                 <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
             </form>
+
+            <section class="winners" aria-label="Победители розыгрыша">
+                <h2 class="winners__title">Победители</h2>
+                {% if winners %}
+                    <table class="winners__table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Дата</th>
+                                <th scope="col">Имя</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for winner in winners %}
+                                <tr>
+                                    <td>{{ winner.won_on|date:"d.m" }}</td>
+                                    <td>{{ winner.name }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
+                {% endif %}
+            </section>
         </div>
     </main>
 
