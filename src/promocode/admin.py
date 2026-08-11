@@ -12,12 +12,20 @@ from promocode.services import WinnerService
 
 @admin.register(PromoCode)
 class PromoCodeAdmin(ModelAdmin):
-    pass
+    list_display = ("id", "code", "is_drawn", "created_at")
+    list_filter = ("is_drawn",)
+    search_fields = ("code",)
+    ordering = ("-id",)
+    readonly_fields = ("created_at",)
 
 
 @admin.register(UserPromocode)
 class UserPromocodeAdmin(ModelAdmin):
-    pass
+    list_display = ("id", "user_id", "promocode_id", "is_won", "won_on", "created_at")
+    list_filter = ("is_won", "won_on")
+    search_fields = ("user_id", "promocode_id")
+    ordering = ("-id",)
+    readonly_fields = ("created_at",)
 
 
 @require_POST
