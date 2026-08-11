@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -133,3 +136,24 @@ MAILERS = {
 
 # Используем собственную реализацию User для аутентификации
 AUTH_USER_MODEL = "user_auth.User"
+
+
+# Celery
+# https://docs.celeryq.dev/en/stable/django/first-steps-with-django.html
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND",
+    "redis://localhost:6379/1",
+)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_IMPORTS = ("config.tasks",)
+
+# from datetime import timedelta
+CELERY_BEAT_SCHEDULE = {
+    "select-random-winner-daily": {
+        "task": "config.tasks.select_random_winner",
+        "schedule": crontab(hour=12, minute=00),
+        # "schedule": timedelta(seconds=10),
+    },
+}
