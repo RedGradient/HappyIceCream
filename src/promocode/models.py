@@ -21,12 +21,13 @@ class PromoCode(models.Model):
         return self.code
 
 
-class PromoCodeHistory(models.Model):
+class UserPromocode(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.BigIntegerField(db_index=True)
-    promocode_id = models.BigIntegerField(db_index=True)
-    is_success = models.BooleanField()
+    promocode_id = models.BigIntegerField(
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "promo_code_history"
+        db_table = "user_promocodes"
