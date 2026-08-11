@@ -101,14 +101,23 @@ class WinnerService:
         Returns:
             Запись UserPromocode победителя.
         """
+
         # Проверяем, есть ли победитель за сегодня
-        if UserPromocode.objects.filter(won_on=timezone.localdate()).exists():
+        today = timezone.localdate()
+        if UserPromocode.objects.filter(won_on=today).exists():
+            logger.info("Winner already selected today: date=%s", today)
             raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")
 
+        logger.info("Starting daily winner selection: date=%s attempts=%s", today, 50)
+
         attempts = 50
-        for _ in range(attempts):
+        for attempt in range(1, attempts + 1):
             promocode = self.get_random_unused_promocode(attempts=1)
             if not promocode:
+                logger.warning(
+                    "No undrawn promo codes left during winner selection: attempt=%s",
+                    attempt,
+                )
                 raise NoWinnerFound
 
             try:
@@ -117,16 +126,41 @@ class WinnerService:
                         promocode_id=promocode.id
                     )
                     user_and_promo.is_won = True
-                    user_and_promo.won_on = timezone.localdate()
+                    user_and_promo.won_on = today
                     user_and_promo.save(update_fields=["is_won", "won_on"])
 
                     promocode.is_drawn = True
                     promocode.save(update_fields=["is_drawn"])
 
+                    logger.info(
+                        "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s attempt=%s",
+                        user_and_promo.user_id,
+                        promocode.id,
+                        promocode.code,
+                        today,
+                        attempt,
+                    )
                     return user_and_promo
             except UserPromocode.DoesNotExist:
+                logger.debug(
+                    "Drawn promo has no user link, retrying: promocode_id=%s code=%s attempt=%s",
+                    promocode.id,
+                    promocode.code,
+                    attempt,
+                )
                 continue
             except IntegrityError:
+                logger.info(
+                    "Promo candidate rejected by integrity constraint, retrying: "
+                    "promocode_id=%s attempt=%s",
+                    promocode.id,
+                    attempt,
+                )
                 continue
 
+        logger.warning(
+            "Failed to select a winner after %s attempts: date=%s",
+            attempts,
+            today,
+        )
         raise NoWinnerFound
