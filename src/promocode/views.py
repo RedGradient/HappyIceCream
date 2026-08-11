@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -6,11 +7,16 @@ from rest_framework.response import Response
 
 from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExists
 from promocode.serializers import PromoCodeSerializer
-from promocode.services import PromoCodeService
+from promocode.services import PromoCodeService, WinnerService
+
+User = get_user_model()
 
 
 def landing(request):
-    return render(request, "landing.html")
+    winner_limit = 15
+    winners = WinnerService().winner_landing_list(winner_limit)
+
+    return render(request, "landing.html", {"winners": winners})
 
 
 @api_view(["POST"])
