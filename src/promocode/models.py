@@ -62,3 +62,8 @@ class UserPromocode(models.Model):
                 name="unique_user_promocode_winner",
             ),
         ]
+
+    def __str__(self) -> str:
+        if self.is_won:
+            return f"user={self.user_id} promo={self.promocode_id} won_on={self.won_on}"
+        return f"user={self.user_id} promo={self.promocode_id}"
