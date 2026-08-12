@@ -57,3 +57,8 @@ class AuthService:
         user.email_confirmed = True
         user.save(update_fields=["email_confirmed"])
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+
+    def set_notify_on_promocode(self, user: User, enabled: bool) -> User:
+        user.notify_on_promocode = enabled
+        user.save(update_fields=["notify_on_promocode"])
+        return user
