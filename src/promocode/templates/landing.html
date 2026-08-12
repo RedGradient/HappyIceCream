@@ -614,7 +614,8 @@
             letter-spacing: 0.02em;
         }
 
-        .password-form {
+        .password-form,
+        .profile-form {
             display: grid;
             gap: 0.75rem;
             padding: 1rem;
@@ -624,18 +625,21 @@
             box-shadow: var(--shadow);
         }
 
-        .password-form .field {
+        .password-form .field,
+        .profile-form .field {
             display: grid;
             gap: 0.3rem;
         }
 
-        .password-form label {
+        .password-form label,
+        .profile-form label {
             font-size: 0.88rem;
             font-weight: 600;
             text-align: left;
         }
 
-        .password-form input {
+        .password-form input,
+        .profile-form input {
             width: 100%;
             height: 2.75rem;
             padding: 0 0.85rem;
@@ -648,11 +652,13 @@
             outline: none;
         }
 
-        .password-form input:focus {
+        .password-form input:focus,
+        .profile-form input:focus {
             border-color: var(--accent);
         }
 
-        .password-form button {
+        .password-form button,
+        .profile-form button {
             margin-top: 0.15rem;
             height: 2.85rem;
             border: 0;
@@ -667,12 +673,14 @@
             transition: background 160ms ease, transform 160ms ease;
         }
 
-        .password-form button:hover {
+        .password-form button:hover,
+        .profile-form button:hover {
             background: var(--accent-deep);
             transform: translateY(-1px);
         }
 
-        .password-form__message {
+        .password-form__message,
+        .profile-form__message {
             margin: 0;
             min-height: 1.1rem;
             text-align: center;
@@ -681,12 +689,18 @@
             color: var(--danger);
         }
 
-        .password-form__message.is-success {
+        .password-form__message.is-success,
+        .profile-form__message.is-success {
             color: #1b7a4a;
         }
 
-        .password-form__message:empty {
+        .password-form__message:empty,
+        .profile-form__message:empty {
             display: none;
+        }
+
+        .account-panel + .account-panel {
+            margin-top: 1rem;
         }
 
         .topbar {
@@ -818,7 +832,7 @@
 
     <header class="topbar">
         {% if user.is_authenticated %}
-            <span class="topbar-user">{{ user.get_full_name|default:user.username }}</span>
+            <span class="topbar-user" id="topbar-user">{{ user.get_full_name|default:user.username }}</span>
             <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button class="btn-solid" type="submit">Выйти</button>
@@ -927,6 +941,48 @@
                                 Можно включить или отключить уведомление в любой момент.
                             </p>
                             <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
+                        </section>
+
+                        <section class="account-panel" aria-label="ФИО">
+                            <h2 class="account-panel__title">ФИО</h2>
+                            <form class="profile-form" id="profile-form">
+                                {% csrf_token %}
+                                <div class="field">
+                                    <label for="profile-first-name">Имя</label>
+                                    <input
+                                        id="profile-first-name"
+                                        name="first_name"
+                                        type="text"
+                                        autocomplete="given-name"
+                                        maxlength="150"
+                                        value="{{ user.first_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="profile-last-name">Фамилия</label>
+                                    <input
+                                        id="profile-last-name"
+                                        name="last_name"
+                                        type="text"
+                                        autocomplete="family-name"
+                                        maxlength="150"
+                                        value="{{ user.last_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="profile-middle-name">Отчество</label>
+                                    <input
+                                        id="profile-middle-name"
+                                        name="middle_name"
+                                        type="text"
+                                        autocomplete="additional-name"
+                                        maxlength="150"
+                                        value="{{ user.middle_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <button type="submit">Сохранить ФИО</button>
+                                <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
+                            </form>
                         </section>
 
                         <section class="account-panel" aria-label="Смена пароля">
@@ -1161,6 +1217,67 @@
                 } finally {
                     notifyCheckbox.disabled = false;
                 }
+            });
+        }
+
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) {
+            const profileMessageEl = document.getElementById('profile-message');
+            const profileCsrf = profileForm.querySelector('[name=csrfmiddlewaretoken]').value;
+            const topbarUser = document.getElementById('topbar-user');
+
+            function setProfileMessage(text, { success = false } = {}) {
+                profileMessageEl.textContent = text || '';
+                profileMessageEl.classList.toggle('is-success', Boolean(success && text));
+            }
+
+            function getProfileErrorMessage(payload) {
+                if (!payload || typeof payload !== 'object') {
+                    return 'Не удалось сохранить ФИО';
+                }
+                if (typeof payload.detail === 'string') {
+                    return payload.detail;
+                }
+                if (Array.isArray(payload.detail)) {
+                    return payload.detail.map((item) => item?.string || item).join(' ');
+                }
+                for (const key of ['first_name', 'last_name', 'middle_name', 'non_field_errors']) {
+                    const value = payload[key];
+                    if (!value) continue;
+                    return Array.isArray(value) ? value[0] : value;
+                }
+                return 'Не удалось сохранить ФИО';
+            }
+
+            profileForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                setProfileMessage('');
+
+                const body = {
+                    first_name: profileForm.first_name.value.trim(),
+                    last_name: profileForm.last_name.value.trim(),
+                    middle_name: profileForm.middle_name.value.trim(),
+                };
+
+                const response = await fetch('{% url "update_profile" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': profileCsrf,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    setProfileMessage(getProfileErrorMessage(payload));
+                    return;
+                }
+
+                if (topbarUser && payload.full_name) {
+                    topbarUser.textContent = payload.full_name;
+                }
+                setProfileMessage('ФИО обновлены', { success: true });
             });
         }
 

@@ -73,6 +73,20 @@ class AuthService:
         user.save(update_fields=["notify_on_promocode"])
         return user
 
+    def update_profile(
+        self,
+        user: User,
+        *,
+        first_name: str = "",
+        last_name: str = "",
+        middle_name: str = "",
+    ) -> User:
+        user.first_name = first_name.strip() or None
+        user.last_name = last_name.strip() or None
+        user.middle_name = middle_name.strip() or None
+        user.save(update_fields=["first_name", "last_name", "middle_name"])
+        return user
+
     def set_user_password(self, user: User, old_password: str, new_password: str):
         try:
             user = User.objects.get(pk=user.id)

@@ -13,7 +13,11 @@ from rest_framework.response import Response
 from auth.exceptions import IncorrectPassword, UserDoesNotExists
 from auth.forms import ForgotPasswordForm, ResetPasswordForm, SignUpForm
 from auth.models import User
-from auth.serializers import ChangePasswordSerializer, NotifyOnPromocodeSerializer
+from auth.serializers import (
+    ChangePasswordSerializer,
+    NotifyOnPromocodeSerializer,
+    UpdateProfileSerializer,
+)
 from auth.services import AuthService
 
 
@@ -74,6 +78,30 @@ def update_notify_on_promocode(request):
     )
     return Response(
         {"ok": True, "notify_on_promocode": user.notify_on_promocode},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    serializer = UpdateProfileSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    user = AuthService().update_profile(
+        request.user,
+        first_name=serializer.validated_data.get("first_name", ""),
+        last_name=serializer.validated_data.get("last_name", ""),
+        middle_name=serializer.validated_data.get("middle_name", ""),
+    )
+    return Response(
+        {
+            "ok": True,
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
+            "middle_name": user.middle_name or "",
+            "full_name": user.get_full_name() or user.username,
+        },
         status=status.HTTP_200_OK,
     )
 

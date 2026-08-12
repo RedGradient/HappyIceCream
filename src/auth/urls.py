@@ -9,6 +9,7 @@ from auth.views import (
     password_reset_confirm,
     signup,
     update_notify_on_promocode,
+    update_profile,
 )
 
 urlpatterns = [
@@ -16,6 +17,7 @@ urlpatterns = [
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("confirm/<uidb64>/<token>/", confirm_email, name="confirm_email"),
+    path("profile/", update_profile, name="update_profile"),
     path("password/change/", change_password, name="change_password"),
     path("password/forgot/", forgot_password, name="forgot_password"),
     path(
