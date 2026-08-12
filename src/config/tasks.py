@@ -2,7 +2,7 @@ import logging
 
 from celery import shared_task
 
-from promocode.exceptions import NoWinnerFound, WinnerAlreadySelectedToday
+from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.services import WinnerService
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 def select_random_winner():
     try:
         winner = WinnerService().get_random_winner()
+        if winner is None:
+            logger.info("Celery select_random_winner finished: no winner today")
+            return
         logger.info(
             "Celery select_random_winner finished: user_id=%s promocode_id=%s",
             winner.user_id,
@@ -21,5 +24,3 @@ def select_random_winner():
         logger.info(
             "Celery select_random_winner skipped: winner already selected today"
         )
-    except NoWinnerFound:
-        logger.warning("Celery select_random_winner failed: no winner candidates")

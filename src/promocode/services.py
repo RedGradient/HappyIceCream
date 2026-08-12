@@ -8,12 +8,11 @@ from django.utils import timezone
 
 from auth.models import User
 from promocode.exceptions import (
-    NoWinnerFound,
     PromocodeAlreadyUsed,
     PromocodeDoesNotExists,
     WinnerAlreadySelectedToday,
 )
-from promocode.models import Promocode, UserPromocode
+from promocode.models import DailyDraw, Promocode, UserPromocode
 
 logger = logging.getLogger(__name__)
 
@@ -136,81 +135,92 @@ class WinnerService:
 
         return candidates.order_by("id").first()
 
-    def get_random_winner(self) -> UserPromocode:
+    def _record_daily_draw(
+        self,
+        draw_date,
+        user_promocode: UserPromocode | None = None,
+    ) -> DailyDraw:
+        try:
+            return DailyDraw.objects.create(
+                date=draw_date,
+                user_promocode=user_promocode,
+            )
+        except IntegrityError as exc:
+            raise WinnerAlreadySelectedToday(
+                "Победитель сегодня уже определен."
+            ) from exc
+
+    def get_random_winner(self) -> UserPromocode | None:
         """
         Случайным образом выбирает победителя розыгрыша за текущий день.
 
-        Берёт случайный ещё не разыгранный занятый промокод, отмечает победу
-        и помечает промокод как is_drawn.
+        Создаёт DailyDraw на сегодня: с user_promocode при победе
+        или без него, если победителя нет.
 
         Raises:
-            WinnerAlreadySelectedToday: победитель на сегодня уже выбран.
-            NoWinnerFound: не удалось найти подходящего кандидата.
+            WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
 
         Returns:
-            Запись UserPromocode победителя.
+            UserPromocode победителя либо None, если победителя нет.
         """
 
         today = timezone.localdate()
-        if UserPromocode.objects.filter(won_on=today).exists():
-            logger.info("Winner already selected today: date=%s", today)
+        if DailyDraw.objects.filter(date=today).exists():
+            logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")
 
-        logger.info("Starting daily winner selection: date=%s attempts=%s", today, 50)
+        logger.info("Starting daily winner selection: date=%s", today)
 
-        attempts = 50
-        for attempt in range(1, attempts + 1):
-            promocode = self.get_random_unused_promocode(attempts=1)
-            if not promocode:
-                logger.warning(
-                    "No undrawn taken promo codes left: attempt=%s",
-                    attempt,
+        attempts = 10
+        promocode = self.get_random_unused_promocode(attempts=attempts)
+        if not promocode:
+            logger.warning(
+                "No undrawn promo codes found; attempts count: %s",
+                attempts,
+            )
+            self._record_daily_draw(today)
+            return None
+
+        try:
+            with transaction.atomic():
+                user_and_promo = UserPromocode.objects.select_for_update().get(
+                    promocode_id=promocode.id
                 )
-                raise NoWinnerFound
+                user_and_promo.is_won = True
+                user_and_promo.won_on = today
+                user_and_promo.save(update_fields=["is_won", "won_on"])
 
-            try:
-                with transaction.atomic():
-                    user_and_promo = UserPromocode.objects.select_for_update().get(
-                        promocode_id=promocode.id
-                    )
-                    user_and_promo.is_won = True
-                    user_and_promo.won_on = today
-                    user_and_promo.save(update_fields=["is_won", "won_on"])
+                promocode.is_drawn = True
+                promocode.save(update_fields=["is_drawn"])
 
-                    promocode.is_drawn = True
-                    promocode.save(update_fields=["is_drawn"])
+                self._record_daily_draw(today, user_and_promo)
 
-                    logger.info(
-                        "Winner selected: user_id=%s promocode_id=%s code=%s "
-                        "won_on=%s attempt=%s",
-                        user_and_promo.user_id,
-                        promocode.id,
-                        promocode.code,
-                        today,
-                        attempt,
-                    )
-                    return user_and_promo
-            except UserPromocode.DoesNotExist:
-                logger.debug(
-                    "Taken promo has no user link, retrying: promocode_id=%s "
-                    "code=%s attempt=%s",
+                logger.info(
+                    "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
+                    user_and_promo.user_id,
                     promocode.id,
                     promocode.code,
-                    attempt,
+                    today,
                 )
-                continue
-            except IntegrityError:
-                logger.info(
-                    "Promo candidate rejected by integrity constraint, retrying: "
-                    "promocode_id=%s attempt=%s",
-                    promocode.id,
-                    attempt,
-                )
-                continue
-
-        logger.warning(
-            "Failed to select a winner after %s attempts: date=%s",
-            attempts,
-            today,
-        )
-        raise NoWinnerFound
+                return user_and_promo
+        except UserPromocode.DoesNotExist:
+            logger.info(
+                "No winner today: taken promo has no user link, "
+                "promocode_id=%s code=%s",
+                promocode.id,
+                promocode.code,
+            )
+            self._record_daily_draw(today)
+            return None
+        except IntegrityError as exc:
+            if DailyDraw.objects.filter(date=today).exists():
+                raise WinnerAlreadySelectedToday(
+                    "Победитель сегодня уже определен."
+                ) from exc
+            logger.info(
+                "No winner today: promo candidate rejected by integrity "
+                "constraint, promocode_id=%s",
+                promocode.id,
+            )
+            self._record_daily_draw(today)
+            return None

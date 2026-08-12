@@ -79,3 +79,27 @@ class UserPromocode(models.Model):
         if self.is_won:
             return f"user={self.user_id} promo={self.promocode_id} won_on={self.won_on}"
         return f"user={self.user_id} promo={self.promocode_id}"
+
+
+class DailyDraw(models.Model):
+    """Результат ежедневного розыгрыша (в т.ч. день без победителя)."""
+
+    id = models.BigAutoField(primary_key=True)
+    date = models.DateField(unique=True)
+    user_promocode = models.ForeignKey(
+        UserPromocode,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="daily_draws",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "daily_draws"
+        ordering: ClassVar[list] = ["-date"]
+
+    def __str__(self) -> str:
+        if self.user_promocode_id:
+            return f"{self.date}: winner={self.user_promocode_id}"
+        return f"{self.date}: no winner"

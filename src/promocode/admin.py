@@ -5,8 +5,8 @@ from django.urls import path
 from django.views.decorators.http import require_POST
 
 from auth.models import User
-from promocode.exceptions import NoWinnerFound
-from promocode.models import Promocode, UserPromocode
+from promocode.exceptions import WinnerAlreadySelectedToday
+from promocode.models import DailyDraw, Promocode, UserPromocode
 from promocode.services import WinnerService
 
 
@@ -29,20 +29,31 @@ class UserPromocodeAdmin(ModelAdmin):
     raw_id_fields = ("user", "promocode")
 
 
+@admin.register(DailyDraw)
+class DailyDrawAdmin(ModelAdmin):
+    list_display = ("id", "date", "user_promocode", "created_at")
+    list_filter = ("date",)
+    ordering = ("-date",)
+    readonly_fields = ("created_at",)
+    raw_id_fields = ("user_promocode",)
+
+
 @require_POST
 def pick_random_winner_view(request):
     try:
         winner = WinnerService().get_random_winner()
-        user = User.objects.filter(pk=winner.user_id).first()
-        name = user.get_full_name() or user.username if user else winner.user_id
-        messages.success(
-            request,
-            f"Победитель выбран: {name} (promocode_id={winner.promocode_id}, дата={winner.won_on}).",
-        )
-    except NoWinnerFound:
-        messages.error(
-            request, "Не удалось выбрать победителя: нет подходящих кандидатов."
-        )
+        if winner is None:
+            messages.info(request, "Розыгрыш закрыт: сегодня без победителя.")
+        else:
+            user = User.objects.filter(pk=winner.user_id).first()
+            name = user.get_full_name() or user.username if user else winner.user_id
+            messages.success(
+                request,
+                f"Победитель выбран: {name} "
+                f"(promocode_id={winner.promocode_id}, дата={winner.won_on}).",
+            )
+    except WinnerAlreadySelectedToday:
+        messages.warning(request, "Розыгрыш на сегодня уже проведён.")
     except Exception as exc:
         messages.error(request, f"Ошибка при выборе победителя: {exc}")
 
