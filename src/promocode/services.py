@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import date
 from typing import Any
 
 from django.core.mail import send_mail
@@ -195,14 +196,17 @@ class WinnerService:
 
                 self._record_daily_draw(today, user_and_promo)
 
-                logger.info(
-                    "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
-                    user_and_promo.user_id,
-                    promocode.id,
-                    promocode.code,
-                    today,
-                )
-                return user_and_promo
+            # Отправляем email победителю
+            self._notify_winner(user_and_promo.user, user_and_promo.promocode, today)
+
+            logger.info(
+                "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
+                user_and_promo.user_id,
+                promocode.id,
+                promocode.code,
+                today,
+            )
+            return user_and_promo
         except UserPromocode.DoesNotExist:
             logger.info(
                 "No winner today: taken promo has no user link, "
@@ -224,3 +228,16 @@ class WinnerService:
             )
             self._record_daily_draw(today)
             return None
+
+    def _notify_winner(self, user: User, promocode: Promocode, date: date):
+        send_mail(
+            subject="Вы победили — Happy Ice Cream",
+            message=(
+                "Поздравляем! Вы победили в ежедневном розыгрыше Happy Ice Cream.\n\n"
+                f"Дата: {date.strftime('%d.%m.%Y')}\n"
+                f"Промокод: {promocode.code}\n\n"
+                "Скоро свяжемся с вами по этому email, чтобы передать приз."
+            ),
+            from_email=None,
+            recipient_list=[user.email],
+        )
