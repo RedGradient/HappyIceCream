@@ -72,6 +72,23 @@ class PromoCodeService:
         )
         return user_promocode
 
+    def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
+        user_and_promocodes = UserPromocode.objects.filter(user_id=user.id).order_by(
+            "-created_at"
+        )
+        promos = PromoCode.objects.in_bulk(
+            [row.promocode_id for row in user_and_promocodes]
+        )
+        return [
+            {
+                "code": promos[row.promocode_id].code,
+                "created_at": row.created_at,
+                "is_won": row.is_won,
+            }
+            for row in user_and_promocodes
+            if row.promocode_id in promos
+        ]
+
 
 class WinnerService:
     def winner_landing_list(self, limit: int) -> list[dict[str, Any]]:

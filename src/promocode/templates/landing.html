@@ -83,7 +83,7 @@
         }
 
         .hero-inner {
-            width: min(100%, 56rem);
+            width: min(100%, 72rem);
             animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
@@ -115,6 +115,38 @@
             align-items: center;
             gap: 1.1rem;
             width: 100%;
+        }
+
+        .promo-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
+            width: 100%;
+        }
+
+        .promo-stage__input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .promo-stage--with-list {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+            align-items: start;
+            gap: 1.5rem 1.75rem;
+        }
+
+        .promo-stage--with-list .ice-truck {
+            --truck-w: min(100%, 44rem);
+        }
+
+        .promo-stage--with-list .promo-stage__input > button {
+            align-self: center;
         }
 
         /* —— Ice cream truck —— */
@@ -429,7 +461,7 @@
             z-index: 1;
         }
 
-        .promo-form > button {
+        .promo-stage__input > button {
             flex: 0 0 auto;
             height: 3.25rem;
             padding: 0 1.5rem;
@@ -446,12 +478,12 @@
             transition: background 160ms ease, transform 160ms ease;
         }
 
-        .promo-form > button:hover {
+        .promo-stage__input > button:hover {
             background: var(--accent-deep);
             transform: translateY(-1px);
         }
 
-        .promo-form > button:active {
+        .promo-stage__input > button:active {
             transform: translateY(0);
         }
 
@@ -526,12 +558,20 @@
             display: none;
         }
 
+        .my-promos {
+            width: 100%;
+            margin: 0;
+            text-align: left;
+            align-self: stretch;
+        }
+
         .winners {
             width: min(100%, 22rem);
             margin: 1.75rem auto 0;
             text-align: left;
         }
 
+        .my-promos__title,
         .winners__title {
             margin: 0 0 0.75rem;
             font-family: Sora, sans-serif;
@@ -541,22 +581,40 @@
             letter-spacing: 0.02em;
         }
 
+        .my-promos__scroll {
+            max-height: min(22rem, 55vh);
+            overflow: auto;
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .my-promos__table,
         .winners__table {
             width: 100%;
             border-collapse: collapse;
             background: rgba(255, 255, 255, 0.55);
             backdrop-filter: blur(8px);
-            box-shadow: var(--shadow);
-            border-radius: 0.85rem;
             overflow: hidden;
         }
 
+        .my-promos__table {
+            border-radius: 0;
+        }
+
+        .winners__table {
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .my-promos__table th,
+        .my-promos__table td,
         .winners__table th,
         .winners__table td {
             padding: 0.65rem 0.9rem;
             font-size: 0.92rem;
         }
 
+        .my-promos__table th,
         .winners__table th {
             font-family: Sora, sans-serif;
             font-weight: 700;
@@ -565,8 +623,16 @@
             text-transform: uppercase;
             color: var(--muted);
             background: rgba(255, 255, 255, 0.35);
+            position: sticky;
+            top: 0;
         }
 
+        .winners__table th {
+            position: static;
+        }
+
+        .my-promos__table td:first-child,
+        .my-promos__table th:first-child,
         .winners__table td:first-child,
         .winners__table th:first-child {
             width: 35%;
@@ -574,10 +640,24 @@
             color: var(--muted);
         }
 
+        .my-promos__code {
+            font-family: Sora, sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .my-promos__won {
+            color: var(--accent-deep);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .my-promos__table tbody tr + tr td,
         .winners__table tbody tr + tr td {
             border-top: 1px solid rgba(26, 43, 51, 0.08);
         }
 
+        .my-promos__empty,
         .winners__empty {
             margin: 0;
             padding: 0.9rem;
@@ -682,6 +762,20 @@
             50% { transform: rotate(-1.2deg); }
         }
 
+        @media (max-width: 860px) {
+            .promo-stage--with-list {
+                grid-template-columns: 1fr;
+            }
+
+            .promo-stage--with-list .ice-truck {
+                --truck-w: min(100%, 52rem);
+            }
+
+            .my-promos__scroll {
+                max-height: 14rem;
+            }
+        }
+
         @media (max-width: 480px) {
             .topbar {
                 flex-wrap: wrap;
@@ -722,52 +816,89 @@
 
             <form class="promo-form" id="promo-form">
                 {% csrf_token %}
-                <div class="ice-truck {% if user.is_authenticated %}is-open{% else %}is-closed{% endif %}" role="group" aria-label="Фургон с полем промокода">
-                    <div class="ice-truck__scoop" aria-hidden="true"></div>
-                    <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
-                    <div class="ice-truck__body" aria-hidden="true"></div>
-                    <div class="ice-truck__cabin" aria-hidden="true">
-                        <div class="ice-truck__windshield"></div>
-                    </div>
-                    <div class="ice-truck__bumper" aria-hidden="true"></div>
-                    <div class="ice-truck__ground" aria-hidden="true"></div>
-                    <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
-                    <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
+                <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
+                    <div class="promo-stage__input">
+                        <div class="ice-truck {% if user.is_authenticated %}is-open{% else %}is-closed{% endif %}" role="group" aria-label="Фургон с полем промокода">
+                            <div class="ice-truck__scoop" aria-hidden="true"></div>
+                            <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
+                            <div class="ice-truck__body" aria-hidden="true"></div>
+                            <div class="ice-truck__cabin" aria-hidden="true">
+                                <div class="ice-truck__windshield"></div>
+                            </div>
+                            <div class="ice-truck__bumper" aria-hidden="true"></div>
+                            <div class="ice-truck__ground" aria-hidden="true"></div>
+                            <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
+                            <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
 
-                    <div class="ice-truck__bay">
-                        <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
-                            {% for i in "01234567" %}
-                                <input
-                                    class="promo-otp__cell"
-                                    type="text"
-                                    maxlength="1"
-                                    inputmode="text"
-                                    autocomplete="one-time-code"
-                                    spellcheck="false"
-                                    placeholder="·"
-                                    aria-label="Символ {{ forloop.counter }}"
-                                    {% if not user.is_authenticated %}disabled{% endif %}
-                                    {% if forloop.first %}id="promo-code-0"{% endif %}
-                                >
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="ice-truck__awning" aria-hidden="{% if user.is_authenticated %}true{% else %}false{% endif %}">
-                        <div class="ice-truck__awning-top">
-                            {% if not user.is_authenticated %}
-                                <div class="awning-actions">
-                                    <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
-                                    <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
+                            <div class="ice-truck__bay">
+                                <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                                    {% for i in "01234567" %}
+                                        <input
+                                            class="promo-otp__cell"
+                                            type="text"
+                                            maxlength="1"
+                                            inputmode="text"
+                                            autocomplete="one-time-code"
+                                            spellcheck="false"
+                                            placeholder="·"
+                                            aria-label="Символ {{ forloop.counter }}"
+                                            {% if not user.is_authenticated %}disabled{% endif %}
+                                            {% if forloop.first %}id="promo-code-0"{% endif %}
+                                        >
+                                    {% endfor %}
                                 </div>
-                            {% endif %}
-                        </div>
-                        <div class="ice-truck__awning-valance"></div>
-                    </div>
-                </div>
+                            </div>
 
-                <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
-                <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                            <div class="ice-truck__awning" aria-hidden="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+                                <div class="ice-truck__awning-top">
+                                    {% if not user.is_authenticated %}
+                                        <div class="awning-actions">
+                                            <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
+                                            <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="ice-truck__awning-valance"></div>
+                            </div>
+                        </div>
+
+                        <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
+                        <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                    </div>
+
+                    {% if user.is_authenticated %}
+                        <section class="my-promos" aria-label="Ваши промокоды">
+                            <h2 class="my-promos__title">Ваши промокоды</h2>
+                            {% if user_promocodes %}
+                                <div class="my-promos__scroll">
+                                    <table class="my-promos__table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Дата</th>
+                                                <th scope="col">Код</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in user_promocodes %}
+                                                <tr>
+                                                    <td>{{ item.created_at|date:"d.m" }}</td>
+                                                    <td>
+                                                        <span class="my-promos__code">{{ item.code }}</span>
+                                                        {% if item.is_won %}
+                                                            <span class="my-promos__won"> · победа</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
+                            {% endif %}
+                        </section>
+                    {% endif %}
+                </div>
             </form>
 
             {% if user.is_authenticated %}
@@ -926,6 +1057,7 @@
             }
 
             setMessage('Промокод принят', { success: true });
+            window.location.reload();
         });
 
         const notifyCheckbox = document.getElementById('notify-on-promocode');

@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExists
 from promocode.serializers import PromoCodeSerializer
@@ -20,44 +21,15 @@ SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
 def landing(request):
     winner_limit = 15
     winners = WinnerService().winner_landing_list(winner_limit)
+    user_promocodes = []
+    if request.user.is_authenticated:
+        user_promocodes = PromoCodeService().user_promocodes_list(request.user)
 
-    return render(request, "landing.html", {"winners": winners})
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def apply_promocode(request):
-    if locked_response := _cooldown_response(request):
-        return locked_response
-
-    code_serializer = PromoCodeSerializer(data=request.data)
-    code_serializer.is_valid(raise_exception=True)
-
-    user = request.user
-    if not (user.first_name and user.last_name):
-        return Response(
-            {"detail": "Для отправки промокода необходимо указать фамилию и имя"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        code = code_serializer.validated_data["code"]
-        PromoCodeService().apply(code, request.user.id)
-    except PromocodeDoesNotExists:
-        _register_failed_attempt(request)
-        return Response(
-            {"detail": "Промокод не найден"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    except PromocodeAlreadyUsed:
-        _register_failed_attempt(request)
-        return Response(
-            {"detail": "Промокод уже использован"},
-            status=status.HTTP_409_CONFLICT,
-        )
-
-    _clear_promo_guards(request)
-    return Response({"ok": True})
+    return render(
+        request,
+        "landing.html",
+        {"winners": winners, "user_promocodes": user_promocodes},
+    )
 
 
 def _cooldown_until(request) -> datetime | None:
@@ -106,3 +78,44 @@ def _register_failed_attempt(request):
 def _clear_promo_guards(request):
     request.session.pop(SESSION_FAILED_ATTEMPTS, None)
     request.session.pop(SESSION_COOLDOWN_UNTIL, None)
+
+
+class PromocodeView(APIView):
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+
+    def get(self, request):
+        promos = PromoCodeService().user_promocodes_list(request.user)
+        return Response(promos)
+
+    def post(self, request):
+        if locked_response := _cooldown_response(request):
+            return locked_response
+
+        code_serializer = PromoCodeSerializer(data=request.data)
+        code_serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        if not (user.first_name and user.last_name):
+            return Response(
+                {"detail": "Для отправки промокода необходимо указать фамилию и имя"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            code = code_serializer.validated_data["code"]
+            PromoCodeService().apply(code, request.user.id)
+        except PromocodeDoesNotExists:
+            _register_failed_attempt(request)
+            return Response(
+                {"detail": "Промокод не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except PromocodeAlreadyUsed:
+            _register_failed_attempt(request)
+            return Response(
+                {"detail": "Промокод уже использован"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        _clear_promo_guards(request)
+        return Response({"ok": True})
