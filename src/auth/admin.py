@@ -14,9 +14,16 @@ class UserAdmin(DjangoUserAdmin):
         "last_name",
         "middle_name",
         "email_confirmed",
+        "notify_on_promocode",
         "created_at",
     )
-    list_filter = ("email_confirmed", "is_staff", "is_active", "is_superuser")
+    list_filter = (
+        "email_confirmed",
+        "notify_on_promocode",
+        "is_staff",
+        "is_active",
+        "is_superuser",
+    )
     search_fields = ("username", "email", "first_name", "last_name", "middle_name")
     ordering = ("-id",)
     readonly_fields = ("created_at", "last_login", "date_joined")
@@ -32,6 +39,7 @@ class UserAdmin(DjangoUserAdmin):
             {
                 "fields": (
                     "email_confirmed",
+                    "notify_on_promocode",
                     "is_active",
                     "is_staff",
                     "is_superuser",

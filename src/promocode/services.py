@@ -2,6 +2,7 @@ import logging
 import random
 from typing import Any
 
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -31,11 +32,23 @@ class PromoCodeService:
         """
 
         try:
+            user = User.objects.get(id=user_id)
             promocode = PromoCode.objects.get(code=code)
             user_promocode = UserPromocode.objects.create(
                 user_id=user_id,
                 promocode_id=promocode.id,
             )
+
+            # Проверяем, есть ли разрешение на отправку уведомлений
+            if user.notify_on_promocode:
+                # Отправляем уведомление, что промокод принят
+                send_mail(
+                    subject="HappyIceCream",
+                    message=f"Промокод принят: {promocode.code}. "
+                    f"Вы в розыгрыше Happy Ice Cream. Удачи!",
+                    from_email=None,
+                    recipient_list=[user.email],
+                )
         except PromoCode.DoesNotExist as exc:
             logger.info(
                 "Promo code not found: code=%s user_id=%s",

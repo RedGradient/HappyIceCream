@@ -9,6 +9,7 @@ class User(AbstractUser):
     last_name = models.CharField(max_length=150, null=True, blank=True)
     middle_name = models.CharField(max_length=150, null=True, blank=True)
     email_confirmed = models.BooleanField(default=False)
+    notify_on_promocode = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
