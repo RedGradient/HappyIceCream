@@ -178,21 +178,25 @@ class PromoCodeService:
 class WinnerService:
     def winner_landing_list(self, limit: int) -> list[dict[str, Any]]:
         winners = (
-            UserPromocode.objects.filter(is_won=True)
-            .select_related("user")
-            .order_by("-won_on")[:limit]
+            DailyDraw.objects.all().select_related("user").order_by("-date")[:limit]
         )
+
+        def name_or_none(user: User | None) -> str | None:
+            if not user:
+                return None
+            return user.get_full_name() or user.username
+
         return [
             {
-                "won_on": row.won_on,
-                "name": row.user.get_full_name() or row.user.username,
+                "date": row.date,
+                "name": name_or_none(row.user),
             }
             for row in winners
         ]
 
     def get_random_unused_promocode(self, attempts: int) -> Promocode | None:
-        # Кандидаты на розыгрыш: уже применённые, ещё не разыгранные
-        candidates = Promocode.objects.filter(is_drawn=False, is_taken=True)
+        # Кандидаты на розыгрыш - ещё не разыгранные промокоды
+        candidates = Promocode.objects.filter(is_drawn=False)
         lo = candidates.order_by("id").values_list("id", flat=True).first()
         hi = candidates.order_by("-id").values_list("id", flat=True).first()
         if lo is None:
@@ -209,12 +213,14 @@ class WinnerService:
     def _record_daily_draw(
         self,
         draw_date,
-        user_promocode: UserPromocode | None = None,
+        user: User | None = None,
+        promocode: Promocode | None = None,
     ) -> DailyDraw:
         try:
             return DailyDraw.objects.create(
                 date=draw_date,
-                user_promocode=user_promocode,
+                user=user,
+                promocode=promocode,
             )
         except IntegrityError as exc:
             raise WinnerAlreadySelectedToday(
@@ -225,8 +231,8 @@ class WinnerService:
         """
         Случайным образом выбирает победителя розыгрыша за текущий день.
 
-        Создаёт DailyDraw на сегодня: с user_promocode при победе
-        или без него, если победителя нет.
+        Создаёт DailyDraw на сегодня: с user и promocode при победе
+        или без user, если победителя нет.
 
         Raises:
             WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
@@ -264,7 +270,11 @@ class WinnerService:
                 promocode.is_drawn = True
                 promocode.save(update_fields=["is_drawn"])
 
-                self._record_daily_draw(today, user_and_promo)
+                self._record_daily_draw(
+                    today,
+                    user=user_and_promo.user,
+                    promocode=promocode,
+                )
 
             # Отправляем email победителю
             self._notify_winner(user_and_promo.user, user_and_promo.promocode, today)

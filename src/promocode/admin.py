@@ -33,11 +33,11 @@ class UserPromocodeAdmin(ModelAdmin):
 
 @admin.register(DailyDraw)
 class DailyDrawAdmin(ModelAdmin):
-    list_display = ("id", "date", "user_promocode", "created_at")
+    list_display = ("id", "date", "user", "promocode", "created_at")
     list_filter = ("date",)
     ordering = ("-date",)
     readonly_fields = ("created_at",)
-    raw_id_fields = ("user_promocode",)
+    raw_id_fields = ("user", "promocode")
 
 
 @require_POST

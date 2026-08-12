@@ -577,6 +577,16 @@
             border-top: 1px solid rgba(26, 43, 51, 0.08);
         }
 
+        .winners__table tbody tr.is-empty td {
+            color: var(--muted);
+            font-style: italic;
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .winners__none {
+            font-weight: 600;
+        }
+
         .my-promos__empty,
         .winners__empty {
             margin: 0;
@@ -973,9 +983,15 @@
                         </thead>
                         <tbody>
                             {% for winner in winners %}
-                                <tr>
-                                    <td>{{ winner.won_on|date:"d.m" }}</td>
-                                    <td>{{ winner.name }}</td>
+                                <tr{% if not winner.name %} class="is-empty"{% endif %}>
+                                    <td>{{ winner.date|date:"d.m" }}</td>
+                                    <td>
+                                        {% if winner.name %}
+                                            {{ winner.name }}
+                                        {% else %}
+                                            <span class="winners__none">Победителя нет</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>

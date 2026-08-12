@@ -86,8 +86,15 @@ class DailyDraw(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     date = models.DateField(unique=True)
-    user_promocode = models.ForeignKey(
-        UserPromocode,
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="daily_draws",
+    )
+    promocode = models.ForeignKey(
+        Promocode,
         null=True,
         blank=True,
         on_delete=models.PROTECT,
@@ -100,6 +107,6 @@ class DailyDraw(models.Model):
         ordering: ClassVar[list] = ["-date"]
 
     def __str__(self) -> str:
-        if self.user_promocode_id:
-            return f"{self.date}: winner={self.user_promocode_id}"
+        if self.user_id and self.promocode_id:
+            return f"{self.date}: user={self.user_id} promo={self.promocode_id}"
         return f"{self.date}: no winner"
