@@ -7,9 +7,9 @@ from django.views.decorators.http import require_POST
 from auth.models import User
 from config.tasks import generate_promocodes
 from promocode.exceptions import WinnerAlreadySelectedToday
-from promocode.forms import GeneratePromocodesForm
+from promocode.forms import ExcelFileForm, GeneratePromocodesForm
 from promocode.models import DailyDraw, Promocode, UserPromocode
-from promocode.services import WinnerService
+from promocode.services import ExcelService, WinnerService
 
 
 @admin.register(Promocode)
@@ -81,6 +81,24 @@ def generate_promocodes_view(request):
     return redirect("admin:index")
 
 
+@require_POST
+def load_from_excel(request):
+    form = ExcelFileForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, "Выберите файл Excel (.xlsx или .xls).")
+        return redirect("admin:index")
+
+    upload = form.cleaned_data["file"]
+    try:
+        created = ExcelService().load_from_excel(upload)
+    except Exception as exc:
+        messages.error(request, f"Не удалось импортировать файл: {exc}")
+        return redirect("admin:index")
+
+    messages.success(request, f"Импортировано промокодов: {created}.")
+    return redirect("admin:index")
+
+
 _original_get_urls = admin.site.get_urls
 
 
@@ -95,6 +113,11 @@ def _get_urls():
             "generate-promocodes/",
             admin.site.admin_view(generate_promocodes_view),
             name="generate_promocodes",
+        ),
+        path(
+            "load-from-excel/",
+            admin.site.admin_view(load_from_excel),
+            name="load_from_excel",
         ),
     ]
     return custom_urls + _original_get_urls()

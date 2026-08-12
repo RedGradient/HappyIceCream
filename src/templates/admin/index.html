@@ -1,66 +1,160 @@
 {% extends "admin/index.html" %}
 
 {% block content %}
-<form method="post" action="{% url 'admin:pick_random_winner' %}" style="margin-bottom: 0.75rem;">
-    {% csrf_token %}
-    <button
-        type="submit"
-        class="button"
-        style="
-            font-size: 0.95rem;
-            font-weight: 600;
-            padding: 0.55rem 1.25rem;
-            min-width: 14rem;
-            cursor: pointer;
-        "
-    >
-        Выбрать победителя
-    </button>
-</form>
+<style>
+    .promo-actions {
+        margin: 0 0 1.5rem;
+    }
 
-<form
-    method="post"
-    action="{% url 'admin:generate_promocodes' %}"
-    style="
-        margin-bottom: 1.25rem;
+    .promo-actions .module {
+        margin-bottom: 0;
+        overflow: hidden;
+    }
+
+    .promo-actions .module h2 {
+        margin: 0;
+        padding: 0.65rem 1rem;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .promo-actions__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .promo-actions__row {
         display: flex;
-        flex-wrap: nowrap;
-        gap: 0.5rem;
+        flex-wrap: wrap;
         align-items: center;
-    "
->
-    {% csrf_token %}
-    <label for="id_count" style="font-weight: 600; white-space: nowrap;">
-        Количество промокодов
-    </label>
-    <input
-        id="id_count"
-        type="number"
-        name="count"
-        min="1"
-        max="5000000"
-        value="1500000"
-        required
-        style="
-            width: 8.5rem;
-            padding: 0.45rem 0.6rem;
-            font-size: 0.95rem;
-        "
-    >
-    <button
-        type="submit"
-        class="button"
-        style="
-            font-size: 0.95rem;
-            font-weight: 600;
-            padding: 0.55rem 1.1rem;
-            cursor: pointer;
-            white-space: nowrap;
-        "
-    >
-        Сгенерировать
-    </button>
-</form>
+        gap: 0.65rem 0.85rem;
+        padding: 0.85rem 1rem;
+        border-top: 1px solid var(--hairline-color, #e8e8e8);
+    }
+
+    .promo-actions__row:first-child {
+        border-top: 0;
+    }
+
+    .promo-actions__label {
+        flex: 0 0 12.5rem;
+        margin: 0;
+        color: var(--body-quiet-color, #666);
+        font-weight: 600;
+        font-size: 0.8125rem;
+    }
+
+    .promo-actions__controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .promo-actions__controls input[type="number"] {
+        width: 8.5rem;
+        min-height: 2rem;
+        padding: 0.3rem 0.5rem;
+        border: 1px solid var(--border-color, #ccc);
+        border-radius: 4px;
+        background: var(--body-bg, #fff);
+        color: var(--body-fg, #333);
+        box-sizing: border-box;
+    }
+
+    .promo-actions__controls input[type="file"] {
+        max-width: min(100%, 22rem);
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
+    }
+
+    .promo-actions__controls .button {
+        padding: 0.55rem 1.15rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .promo-actions__hint {
+        margin: 0;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.75rem;
+    }
+
+    @media (max-width: 767px) {
+        .promo-actions__label {
+            flex-basis: 100%;
+        }
+    }
+</style>
+
+<div class="promo-actions">
+    <div class="module">
+        <h2>Действия с промокодами</h2>
+
+        <ul class="promo-actions__list">
+            <li class="promo-actions__row">
+                <span class="promo-actions__label">Розыгрыш</span>
+                <form
+                    class="promo-actions__controls"
+                    method="post"
+                    action="{% url 'admin:pick_random_winner' %}"
+                >
+                    {% csrf_token %}
+                    <button type="submit" class="button default">Выбрать победителя</button>
+                    <p class="promo-actions__hint">Закрывает розыгрыш за сегодня</p>
+                </form>
+            </li>
+
+            <li class="promo-actions__row">
+                <label class="promo-actions__label" for="id_count">Сгенерировать</label>
+                <form
+                    class="promo-actions__controls"
+                    method="post"
+                    action="{% url 'admin:generate_promocodes' %}"
+                >
+                    {% csrf_token %}
+                    <input
+                        id="id_count"
+                        type="number"
+                        name="count"
+                        min="1"
+                        max="5000000"
+                        value="1500000"
+                        required
+                    >
+                    <button type="submit" class="button">Запустить</button>
+                    <p class="promo-actions__hint">Фоновая задача Celery</p>
+                </form>
+            </li>
+
+            <li class="promo-actions__row">
+                <label class="promo-actions__label" for="id_file">Импорт Excel</label>
+                <form
+                    class="promo-actions__controls"
+                    method="post"
+                    action="{% url 'admin:load_from_excel' %}"
+                    enctype="multipart/form-data"
+                >
+                    {% csrf_token %}
+                    <input
+                        id="id_file"
+                        type="file"
+                        name="file"
+                        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                        required
+                    >
+                    <button type="submit" class="button">Загрузить</button>
+                    <p class="promo-actions__hint">Один столбец с кодами</p>
+                </form>
+            </li>
+        </ul>
+    </div>
+</div>
 
 {{ block.super }}
 {% endblock %}
