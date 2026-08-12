@@ -5,7 +5,9 @@ from django.urls import path
 from django.views.decorators.http import require_POST
 
 from auth.models import User
+from config.tasks import generate_promocodes
 from promocode.exceptions import WinnerAlreadySelectedToday
+from promocode.forms import GeneratePromocodesForm
 from promocode.models import DailyDraw, Promocode, UserPromocode
 from promocode.services import WinnerService
 
@@ -60,6 +62,25 @@ def pick_random_winner_view(request):
     return redirect("admin:index")
 
 
+@require_POST
+def generate_promocodes_view(request):
+    form = GeneratePromocodesForm(request.POST)
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Укажите целое число промокодов от 1 до 5 000 000.",
+        )
+        return redirect("admin:index")
+
+    count = form.cleaned_data["count"]
+    generate_promocodes.delay(count)
+    messages.success(
+        request,
+        f"Запущена генерация {count:,} промокодов (задача в Celery).",
+    )
+    return redirect("admin:index")
+
+
 _original_get_urls = admin.site.get_urls
 
 
@@ -69,6 +90,11 @@ def _get_urls():
             "pick-random-winner/",
             admin.site.admin_view(pick_random_winner_view),
             name="pick_random_winner",
+        ),
+        path(
+            "generate-promocodes/",
+            admin.site.admin_view(generate_promocodes_view),
+            name="generate_promocodes",
         ),
     ]
     return custom_urls + _original_get_urls()

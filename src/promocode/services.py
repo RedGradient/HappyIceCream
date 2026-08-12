@@ -1,5 +1,7 @@
 import logging
 import random
+import secrets
+import string
 from datetime import date
 from typing import Any
 
@@ -16,6 +18,11 @@ from promocode.exceptions import (
 from promocode.models import DailyDraw, Promocode, UserPromocode
 
 logger = logging.getLogger(__name__)
+
+PROMO_CODE_ALPHABET_LETTERS = string.ascii_uppercase
+PROMO_CODE_ALPHABET_NUMBERS = string.digits
+PROMO_CODE_LENGTH = 8
+PROMO_CODE_BATCH_SIZE = 50_000
 
 
 class PromoCodeService:
@@ -88,6 +95,68 @@ class PromoCodeService:
             promocode.id,
         )
         return user_promocode
+
+    @staticmethod
+    def _random_code() -> str:
+        """Создает случайный буквенный или числовой промокод"""
+
+        # Выбираем промокод - буквенный или числовой
+        alphabet = secrets.choice(
+            [PROMO_CODE_ALPHABET_LETTERS, PROMO_CODE_ALPHABET_NUMBERS]
+        )
+
+        return "".join(secrets.choice(alphabet) for _ in range(PROMO_CODE_LENGTH))
+
+    def generate_codes(
+        self,
+        count: int,
+        batch_size: int = PROMO_CODE_BATCH_SIZE,
+    ) -> int:
+        """
+        Создаёт случайные буквенные и числовые промокоды батчами через bulk_create.
+
+        Returns:
+            Число реально вставленных строк (с учётом ignore_conflicts).
+        """
+        if count <= 0:
+            return 0
+
+        created_total = 0
+        now = timezone.now()
+
+        while created_total < count:
+            batch_count = min(batch_size, count - created_total)
+            codes: set[str] = set()
+            while len(codes) < batch_count:
+                codes.add(self._random_code())
+
+            before = Promocode.objects.count()
+            Promocode.objects.bulk_create(
+                [Promocode(code=code, created_at=now) for code in codes],
+                ignore_conflicts=True,
+                batch_size=batch_size,
+            )
+            inserted = Promocode.objects.count() - before
+            created_total += inserted
+
+            logger.info(
+                "Promo codes batch inserted: requested=%s inserted=%s "
+                "total_created=%s target=%s",
+                batch_count,
+                inserted,
+                created_total,
+                count,
+            )
+            if inserted == 0:
+                logger.warning(
+                    "Promo codes batch inserted nothing, stopping early: "
+                    "total_created=%s target=%s",
+                    created_total,
+                    count,
+                )
+                break
+
+        return created_total
 
     def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
         rows = (
