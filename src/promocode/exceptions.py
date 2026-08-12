@@ -1,4 +1,4 @@
-class PromocodeDoesNotExists(Exception):
+class PromocodeDoesNotExist(Exception):
     pass
 
 

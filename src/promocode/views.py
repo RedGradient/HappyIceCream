@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExists
+from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExist
 from promocode.serializers import PromoCodeSerializer
 from promocode.services import PromoCodeService, WinnerService
 
@@ -104,7 +104,7 @@ class PromocodeView(APIView):
         try:
             code = code_serializer.validated_data["code"]
             PromoCodeService().apply(code, request.user.id)
-        except PromocodeDoesNotExists:
+        except PromocodeDoesNotExist:
             _register_failed_attempt(request)
             return Response(
                 {"detail": "Промокод не найден"},

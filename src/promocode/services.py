@@ -13,7 +13,7 @@ from django.utils import timezone
 from auth.models import User
 from promocode.exceptions import (
     PromocodeAlreadyUsed,
-    PromocodeDoesNotExists,
+    PromocodeDoesNotExist,
     WinnerAlreadySelectedToday,
 )
 from promocode.models import DailyDraw, Promocode, UserPromocode
@@ -45,7 +45,7 @@ class PromoCodeService:
                 try:
                     promocode = Promocode.objects.select_for_update().get(code=code)
                 except Promocode.DoesNotExist as exc:
-                    raise PromocodeDoesNotExists from exc
+                    raise PromocodeDoesNotExist from exc
 
                 if promocode.is_taken:
                     raise PromocodeAlreadyUsed
@@ -67,7 +67,7 @@ class PromoCodeService:
                     from_email=None,
                     recipient_list=[user.email],
                 )
-        except PromocodeDoesNotExists:
+        except PromocodeDoesNotExist:
             logger.info(
                 "Promo code not found: code=%s user_id=%s",
                 code,
