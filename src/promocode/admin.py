@@ -15,19 +15,17 @@ from promocode.services import ExcelService, WinnerService
 @admin.register(Promocode)
 class PromoCodeAdmin(ModelAdmin):
     list_display = ("id", "code", "is_taken", "is_drawn", "created_at")
-    list_filter = ("is_taken", "is_drawn")
+    list_filter = ("is_taken", "is_drawn", "created_at")
     search_fields = ("code",)
     ordering = ("-id",)
-    readonly_fields = ("created_at",)
 
 
 @admin.register(UserPromocode)
 class UserPromocodeAdmin(ModelAdmin):
     list_display = ("id", "user", "promocode", "is_won", "won_on", "created_at")
-    list_filter = ("is_won", "won_on")
+    list_filter = ("is_won", "won_on", "created_at")
     search_fields = ("user__username", "user__email", "promocode__code")
     ordering = ("-id",)
-    readonly_fields = ("created_at",)
     raw_id_fields = ("user", "promocode")
 
 

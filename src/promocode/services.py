@@ -2,7 +2,7 @@ import logging
 import random
 import secrets
 import string
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
@@ -194,9 +194,17 @@ class WinnerService:
             for row in winners
         ]
 
-    def get_random_unused_promocode(self, attempts: int) -> Promocode | None:
-        # Кандидаты на розыгрыш - ещё не разыгранные промокоды
-        candidates = Promocode.objects.filter(is_drawn=False)
+    def get_random_unused_promocode(
+        self,
+        attempts: int,
+        on_date: date,
+    ) -> Promocode | None:
+        # Кандидаты: применённые в on_date, ещё не разыгранные
+        candidates = Promocode.objects.filter(
+            is_drawn=False,
+            is_taken=True,
+            user_promocode__created_at__date=on_date,
+        )
         lo = candidates.order_by("id").values_list("id", flat=True).first()
         hi = candidates.order_by("-id").values_list("id", flat=True).first()
         if lo is None:
@@ -242,17 +250,26 @@ class WinnerService:
         """
 
         today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
         if DailyDraw.objects.filter(date=today).exists():
             logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")
 
-        logger.info("Starting daily winner selection: date=%s", today)
+        logger.info(
+            "Starting daily winner selection: draw_date=%s pool_date=%s",
+            today,
+            yesterday,
+        )
 
         attempts = 10
-        promocode = self.get_random_unused_promocode(attempts=attempts)
+        promocode = self.get_random_unused_promocode(
+            attempts=attempts,
+            on_date=yesterday,
+        )
         if not promocode:
             logger.warning(
-                "No undrawn promo codes found; attempts count: %s",
+                "No undrawn promo codes for pool_date=%s; attempts=%s",
+                yesterday,
                 attempts,
             )
             self._record_daily_draw(today)

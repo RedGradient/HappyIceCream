@@ -3,6 +3,7 @@ from typing import ClassVar
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from django.utils import timezone
 
 PROMO_CODE_VALIDATOR = RegexValidator(
     regex=r"^([A-Z]{8}|[0-9]{8})$",
@@ -19,7 +20,7 @@ class Promocode(models.Model):
     )
     is_taken = models.BooleanField(default=False, db_index=True)
     is_drawn = models.BooleanField(default=False, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = "promo_codes"
@@ -56,7 +57,7 @@ class UserPromocode(models.Model):
     )
     is_won = models.BooleanField(default=False)
     won_on = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = "user_promocodes"
