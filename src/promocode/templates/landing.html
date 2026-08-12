@@ -109,14 +109,6 @@
             font-weight: 600;
         }
 
-        .promo-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1.1rem;
-            width: 100%;
-        }
-
         .promo-stage {
             display: flex;
             flex-direction: column;
@@ -130,6 +122,14 @@
             flex-direction: column;
             align-items: center;
             gap: 1.1rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .promo-stage__side {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
             width: 100%;
             min-width: 0;
         }
@@ -426,8 +426,8 @@
         }
 
         .notify-pref {
-            width: min(100%, 26rem);
-            margin: 1.25rem auto 0;
+            width: 100%;
+            margin: 0;
             padding: 0.95rem 1.1rem;
             text-align: left;
             background: rgba(255, 255, 255, 0.55);
@@ -590,8 +590,8 @@
         }
 
         .account-panel {
-            width: min(100%, 22rem);
-            margin: 1.75rem auto 0;
+            width: 100%;
+            margin: 0;
             text-align: left;
         }
 
@@ -827,52 +827,52 @@
                 <p class="user-line">Вы вошли как {{ user.username }}</p>
             {% endif %}
 
-            <form class="promo-form" id="promo-form">
-                {% csrf_token %}
-                <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
-                    <div class="promo-stage__input">
-                        <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
-                            <div class="ice-truck__scoop" aria-hidden="true"></div>
-                            <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
-                            <div class="ice-truck__body" aria-hidden="true"></div>
-                            <div class="ice-truck__cabin" aria-hidden="true">
-                                <div class="ice-truck__windshield"></div>
-                            </div>
-                            <div class="ice-truck__bumper" aria-hidden="true"></div>
-                            <div class="ice-truck__ground" aria-hidden="true"></div>
-                            <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
-                            <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
+            <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
+                <form class="promo-stage__input" id="promo-form">
+                    {% csrf_token %}
+                    <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
+                        <div class="ice-truck__scoop" aria-hidden="true"></div>
+                        <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
+                        <div class="ice-truck__body" aria-hidden="true"></div>
+                        <div class="ice-truck__cabin" aria-hidden="true">
+                            <div class="ice-truck__windshield"></div>
+                        </div>
+                        <div class="ice-truck__bumper" aria-hidden="true"></div>
+                        <div class="ice-truck__ground" aria-hidden="true"></div>
+                        <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
+                        <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
 
-                            <div class="ice-truck__bay">
-                                <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
-                                    {% for i in "01234567" %}
-                                        <input
-                                            class="promo-otp__cell"
-                                            type="text"
-                                            maxlength="1"
-                                            inputmode="text"
-                                            autocomplete="one-time-code"
-                                            spellcheck="false"
-                                            placeholder="·"
-                                            aria-label="Символ {{ forloop.counter }}"
-                                            {% if not user.is_authenticated %}disabled{% endif %}
-                                            {% if forloop.first %}id="promo-code-0"{% endif %}
-                                        >
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="ice-truck__awning" aria-hidden="true">
-                                <div class="ice-truck__awning-top"></div>
-                                <div class="ice-truck__awning-valance"></div>
+                        <div class="ice-truck__bay">
+                            <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                                {% for i in "01234567" %}
+                                    <input
+                                        class="promo-otp__cell"
+                                        type="text"
+                                        maxlength="1"
+                                        inputmode="text"
+                                        autocomplete="one-time-code"
+                                        spellcheck="false"
+                                        placeholder="·"
+                                        aria-label="Символ {{ forloop.counter }}"
+                                        {% if not user.is_authenticated %}disabled{% endif %}
+                                        {% if forloop.first %}id="promo-code-0"{% endif %}
+                                    >
+                                {% endfor %}
                             </div>
                         </div>
 
-                        <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
-                        <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                        <div class="ice-truck__awning" aria-hidden="true">
+                            <div class="ice-truck__awning-top"></div>
+                            <div class="ice-truck__awning-valance"></div>
+                        </div>
                     </div>
 
-                    {% if user.is_authenticated %}
+                    <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
+                    <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                </form>
+
+                {% if user.is_authenticated %}
+                    <div class="promo-stage__side">
                         <section class="my-promos" aria-label="Ваши промокоды">
                             <h2 class="my-promos__title">Ваши промокоды</h2>
                             {% if user_promocodes %}
@@ -903,65 +903,63 @@
                                 <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
                             {% endif %}
                         </section>
-                    {% endif %}
-                </div>
-            </form>
 
-            {% if user.is_authenticated %}
-                <section class="notify-pref" aria-label="Уведомления о промокоде">
-                    <label class="notify-pref__label" for="notify-on-promocode">
-                        <input
-                            id="notify-on-promocode"
-                            type="checkbox"
-                            {% if user.notify_on_promocode %}checked{% endif %}
-                        >
-                        <span>Присылать email при успешном вводе промокода</span>
-                    </label>
-                    <p class="notify-pref__hint">
-                        Можно включить или отключить уведомление в любой момент.
-                    </p>
-                    <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
-                </section>
+                        <section class="notify-pref" aria-label="Уведомления о промокоде">
+                            <label class="notify-pref__label" for="notify-on-promocode">
+                                <input
+                                    id="notify-on-promocode"
+                                    type="checkbox"
+                                    {% if user.notify_on_promocode %}checked{% endif %}
+                                >
+                                <span>Присылать email при успешном вводе промокода</span>
+                            </label>
+                            <p class="notify-pref__hint">
+                                Можно включить или отключить уведомление в любой момент.
+                            </p>
+                            <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
+                        </section>
 
-                <section class="account-panel" aria-label="Смена пароля">
-                    <h2 class="account-panel__title">Смена пароля</h2>
-                    <form class="password-form" id="password-form">
-                        {% csrf_token %}
-                        <div class="field">
-                            <label for="old-password">Текущий пароль</label>
-                            <input
-                                id="old-password"
-                                name="old_password"
-                                type="password"
-                                autocomplete="current-password"
-                                required
-                            >
-                        </div>
-                        <div class="field">
-                            <label for="new-password">Новый пароль</label>
-                            <input
-                                id="new-password"
-                                name="new_password"
-                                type="password"
-                                autocomplete="new-password"
-                                required
-                            >
-                        </div>
-                        <div class="field">
-                            <label for="new-password-confirm">Повтор нового пароля</label>
-                            <input
-                                id="new-password-confirm"
-                                name="new_password_confirm"
-                                type="password"
-                                autocomplete="new-password"
-                                required
-                            >
-                        </div>
-                        <button type="submit">Сохранить пароль</button>
-                        <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
-                    </form>
-                </section>
-            {% endif %}
+                        <section class="account-panel" aria-label="Смена пароля">
+                            <h2 class="account-panel__title">Смена пароля</h2>
+                            <form class="password-form" id="password-form">
+                                {% csrf_token %}
+                                <div class="field">
+                                    <label for="old-password">Текущий пароль</label>
+                                    <input
+                                        id="old-password"
+                                        name="old_password"
+                                        type="password"
+                                        autocomplete="current-password"
+                                        required
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="new-password">Новый пароль</label>
+                                    <input
+                                        id="new-password"
+                                        name="new_password"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        required
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="new-password-confirm">Повтор нового пароля</label>
+                                    <input
+                                        id="new-password-confirm"
+                                        name="new_password_confirm"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        required
+                                    >
+                                </div>
+                                <button type="submit">Сохранить пароль</button>
+                                <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
+                            </form>
+                        </section>
+                    </div>
+                {% endif %}
+            </div>
 
             <section class="winners" aria-label="Победители розыгрыша">
                 <h2 class="winners__title">Победители</h2>
