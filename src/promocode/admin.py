@@ -55,7 +55,7 @@ def pick_random_winner_view(request):
                 f"(promocode_id={winner.promocode_id}, дата={winner.won_on}).",
             )
     except WinnerAlreadySelectedToday:
-        messages.warning(request, "Розыгрыш на сегодня уже проведён.")
+        messages.warning(request, "Розыгрыш сегодня уже проведён.")
     except Exception as exc:
         messages.error(request, f"Ошибка при выборе победителя: {exc}")
 
