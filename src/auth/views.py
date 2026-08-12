@@ -1,4 +1,4 @@
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
@@ -7,8 +7,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from auth.exceptions import IncorrectPassword, UserDoesNotExists
 from auth.forms import SignUpForm
-from auth.serializers import NotifyOnPromocodeSerializer
+from auth.serializers import ChangePasswordSerializer, NotifyOnPromocodeSerializer
 from auth.services import AuthService
 
 
@@ -71,3 +72,33 @@ def update_notify_on_promocode(request):
         {"ok": True, "notify_on_promocode": user.notify_on_promocode},
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    serializer = ChangePasswordSerializer(
+        data=request.data,
+        context={"user": request.user},
+    )
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        AuthService().set_user_password(
+            request.user,
+            serializer.validated_data["old_password"],
+            serializer.validated_data["new_password"],
+        )
+    except IncorrectPassword:
+        return Response(
+            {"detail": "Неверный текущий пароль"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except UserDoesNotExists:
+        return Response(
+            {"detail": "Пользователь не найден"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    update_session_auth_hash(request, request.user)
+    return Response({"ok": True})

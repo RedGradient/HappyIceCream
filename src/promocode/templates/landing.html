@@ -669,6 +669,96 @@
             box-shadow: var(--shadow);
         }
 
+        .account-panel {
+            width: min(100%, 22rem);
+            margin: 1.75rem auto 0;
+            text-align: left;
+        }
+
+        .account-panel__title {
+            margin: 0 0 0.75rem;
+            font-family: Sora, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+
+        .password-form {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(8px);
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .password-form .field {
+            display: grid;
+            gap: 0.3rem;
+        }
+
+        .password-form label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .password-form input {
+            width: 100%;
+            height: 2.75rem;
+            padding: 0 0.85rem;
+            border: 1px solid var(--ring);
+            border-radius: 0.75rem;
+            background: var(--field);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .password-form input:focus {
+            border-color: var(--accent);
+        }
+
+        .password-form button {
+            margin-top: 0.15rem;
+            height: 2.85rem;
+            border: 0;
+            border-radius: 0.75rem;
+            background: var(--accent);
+            color: #fff;
+            font-family: Sora, sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        .password-form button:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .password-form__message {
+            margin: 0;
+            min-height: 1.1rem;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .password-form__message.is-success {
+            color: #1b7a4a;
+        }
+
+        .password-form__message:empty {
+            display: none;
+        }
+
         .topbar {
             position: fixed;
             top: 0;
@@ -916,6 +1006,45 @@
                     </p>
                     <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
                 </section>
+
+                <section class="account-panel" aria-label="Смена пароля">
+                    <h2 class="account-panel__title">Смена пароля</h2>
+                    <form class="password-form" id="password-form">
+                        {% csrf_token %}
+                        <div class="field">
+                            <label for="old-password">Текущий пароль</label>
+                            <input
+                                id="old-password"
+                                name="old_password"
+                                type="password"
+                                autocomplete="current-password"
+                                required
+                            >
+                        </div>
+                        <div class="field">
+                            <label for="new-password">Новый пароль</label>
+                            <input
+                                id="new-password"
+                                name="new_password"
+                                type="password"
+                                autocomplete="new-password"
+                                required
+                            >
+                        </div>
+                        <div class="field">
+                            <label for="new-password-confirm">Повтор нового пароля</label>
+                            <input
+                                id="new-password-confirm"
+                                name="new_password_confirm"
+                                type="password"
+                                autocomplete="new-password"
+                                required
+                            >
+                        </div>
+                        <button type="submit">Сохранить пароль</button>
+                        <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
+                    </form>
+                </section>
             {% endif %}
 
             <section class="winners" aria-label="Победители розыгрыша">
@@ -1102,6 +1231,64 @@
                 } finally {
                     notifyCheckbox.disabled = false;
                 }
+            });
+        }
+
+        const passwordForm = document.getElementById('password-form');
+        if (passwordForm) {
+            const passwordMessageEl = document.getElementById('password-message');
+            const passwordCsrf = passwordForm.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            function setPasswordMessage(text, { success = false } = {}) {
+                passwordMessageEl.textContent = text || '';
+                passwordMessageEl.classList.toggle('is-success', Boolean(success && text));
+            }
+
+            function getPasswordErrorMessage(payload) {
+                if (!payload || typeof payload !== 'object') {
+                    return 'Не удалось сменить пароль';
+                }
+                if (typeof payload.detail === 'string') {
+                    return payload.detail;
+                }
+                if (Array.isArray(payload.detail)) {
+                    return payload.detail.map((item) => item?.string || item).join(' ');
+                }
+                for (const key of ['old_password', 'new_password', 'new_password_confirm', 'non_field_errors']) {
+                    const value = payload[key];
+                    if (!value) continue;
+                    return Array.isArray(value) ? value[0] : value;
+                }
+                return 'Не удалось сменить пароль';
+            }
+
+            passwordForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                setPasswordMessage('');
+
+                const body = {
+                    old_password: passwordForm.old_password.value,
+                    new_password: passwordForm.new_password.value,
+                    new_password_confirm: passwordForm.new_password_confirm.value,
+                };
+
+                const response = await fetch('{% url "change_password" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': passwordCsrf,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    setPasswordMessage(getPasswordErrorMessage(payload));
+                    return;
+                }
+
+                passwordForm.reset();
+                setPasswordMessage('Пароль обновлён', { success: true });
             });
         }
     </script>
