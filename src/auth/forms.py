@@ -53,3 +53,38 @@ class SignUpForm(forms.ModelForm):
         if password and password_confirm and password != password_confirm:
             self.add_error("password_confirm", "Пароли не совпадают.")
         return cleaned
+
+
+class ForgotPasswordForm(forms.Form):
+    email = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+    )
+
+
+class ResetPasswordForm(forms.Form):
+    password = forms.CharField(
+        label="Новый пароль",
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    password_confirm = forms.CharField(
+        label="Повтор нового пароля",
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        validate_password(password, user=self.user)
+        return password
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get("password")
+        password_confirm = cleaned.get("password_confirm")
+        if password and password_confirm and password != password_confirm:
+            self.add_error("password_confirm", "Пароли не совпадают.")
+        return cleaned

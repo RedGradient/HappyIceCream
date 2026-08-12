@@ -16,6 +16,16 @@ def _build_confirm_url(user: User, request) -> str:
     return request.build_absolute_uri(path)
 
 
+def _build_password_reset_url(user: User, request) -> str:
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    path = reverse(
+        "password_reset_confirm",
+        kwargs={"uidb64": uidb64, "token": token},
+    )
+    return request.build_absolute_uri(path)
+
+
 class EmailService:
     def send_confirm_email(self, user: User, request):
         confirm_url = _build_confirm_url(user, request)
@@ -40,7 +50,6 @@ class AuthService:
         user.email_confirmed = False
         user.save()
 
-        # Отправка email для подтверждения почты
         EmailService().send_confirm_email(user, request)
 
         return user
@@ -73,3 +82,24 @@ class AuthService:
             user.save(update_fields=["password"])
         except User.DoesNotExist as exc:
             raise UserDoesNotExists() from exc
+
+    def reset_password(self, user: User, new_password: str) -> User:
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return user
+
+    def send_password_reset(self, email: str, request):
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return
+
+        reset_url = _build_password_reset_url(user, request)
+        send_mail(
+            subject="Сброс пароля — Happy Ice Cream",
+            message=(
+                f"Перейдите по ссылке для смены пароля:\n{reset_url}\n\n"
+                "Если это были не вы, проигнорируйте письмо."
+            ),
+            from_email=None,
+            recipient_list=[user.email],
+        )

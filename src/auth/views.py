@@ -1,6 +1,9 @@
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.tokens import default_token_generator
 from django.shortcuts import redirect, render
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.http import require_GET
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -8,7 +11,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from auth.exceptions import IncorrectPassword, UserDoesNotExists
-from auth.forms import SignUpForm
+from auth.forms import ForgotPasswordForm, ResetPasswordForm, SignUpForm
+from auth.models import User
 from auth.serializers import ChangePasswordSerializer, NotifyOnPromocodeSerializer
 from auth.services import AuthService
 
@@ -102,3 +106,41 @@ def change_password(request):
 
     update_session_auth_hash(request, request.user)
     return Response({"ok": True})
+
+
+def forgot_password(request):
+    if request.user.is_authenticated:
+        return redirect("landing")
+
+    if request.method == "POST":
+        form = ForgotPasswordForm(request.POST)
+        if form.is_valid():
+            AuthService().send_password_reset(form.cleaned_data["email"], request)
+            return render(request, "forgot_password_done.html")
+    else:
+        form = ForgotPasswordForm()
+
+    return render(request, "forgot_password.html", {"form": form})
+
+
+def password_reset_confirm(request, uidb64: str, token: str):
+    # Получаем пользователя
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, User.DoesNotExist):
+        return render(request, "confirm_email_invalid.html", status=400)
+
+    # Проверка корректности токена (срок действия, актуальность)
+    if not default_token_generator.check_token(user, token):
+        return render(request, "confirm_email_invalid.html", status=400)
+
+    if request.method == "POST":
+        form = ResetPasswordForm(request.POST, user=user)
+        if form.is_valid():
+            AuthService().reset_password(user, form.cleaned_data["password"])
+            return render(request, "reset_password_done.html")
+    else:
+        form = ResetPasswordForm(user=user)
+
+    return render(request, "reset_password.html", {"form": form})
