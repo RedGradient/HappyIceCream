@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
 
@@ -9,15 +10,15 @@ PROMO_CODE_VALIDATOR = RegexValidator(
 )
 
 
-class PromoCode(models.Model):
+class Promocode(models.Model):
     id = models.BigAutoField(primary_key=True)
     code = models.CharField(
-        max_length=8, unique=True, validators=[PROMO_CODE_VALIDATOR]
+        max_length=8,
+        unique=True,
+        validators=[PROMO_CODE_VALIDATOR],
     )
-
-    # Выпадал ли промокод в прошлых розыгрышах
+    is_taken = models.BooleanField(default=False, db_index=True)
     is_drawn = models.BooleanField(default=False, db_index=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -25,8 +26,13 @@ class PromoCode(models.Model):
         indexes: ClassVar[list] = [
             models.Index(
                 fields=["id"],
-                name="promocode_undrawn_id_idx",
-                condition=models.Q(is_drawn=False),
+                name="promocode_free_id_idx",
+                condition=models.Q(is_taken=False),
+            ),
+            models.Index(
+                fields=["id"],
+                name="promocode_undrawn_taken_id_idx",
+                condition=models.Q(is_drawn=False, is_taken=True),
             ),
         ]
 
@@ -36,10 +42,17 @@ class PromoCode(models.Model):
 
 class UserPromocode(models.Model):
     id = models.BigAutoField(primary_key=True)
-    user_id = models.BigIntegerField(db_index=True)
-    promocode_id = models.BigIntegerField(
-        unique=True,
-        db_index=True,
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="user_promocodes",
+        db_column="user_id",
+    )
+    promocode = models.OneToOneField(
+        Promocode,
+        on_delete=models.PROTECT,
+        related_name="user_promocode",
+        db_column="promocode_id",
     )
     is_won = models.BooleanField(default=False)
     won_on = models.DateField(null=True, blank=True)
@@ -55,9 +68,8 @@ class UserPromocode(models.Model):
             ),
         ]
         constraints: ClassVar[list] = [
-            # Один пользователь может победить только один раз
             models.UniqueConstraint(
-                fields=["user_id"],
+                fields=["user"],
                 condition=models.Q(is_won=True),
                 name="unique_user_promocode_winner",
             ),

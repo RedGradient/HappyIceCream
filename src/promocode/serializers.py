@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from promocode.models import PromoCode
+from promocode.models import Promocode
 
 
 class PromoCodeSerializer(serializers.Serializer):
@@ -14,5 +14,5 @@ class PromoCodeSerializer(serializers.Serializer):
     )
 
     class Meta:
-        model = PromoCode
+        model = Promocode
         fields = ("code",)

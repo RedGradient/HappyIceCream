@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from promocode.models import PromoCode
+from promocode.models import Promocode
 
 SEED_CODES = (
     "HAPPYICE",
@@ -18,7 +18,7 @@ class Command(BaseCommand):
         created_count = 0
 
         for code in SEED_CODES:
-            _, created = PromoCode.objects.get_or_create(code=code)
+            _, created = Promocode.objects.get_or_create(code=code)
             if created:
                 created_count += 1
                 self.stdout.write(f"Created {code}")

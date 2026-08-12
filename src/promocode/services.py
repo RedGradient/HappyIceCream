@@ -13,7 +13,7 @@ from promocode.exceptions import (
     PromocodeDoesNotExists,
     WinnerAlreadySelectedToday,
 )
-from promocode.models import PromoCode, UserPromocode
+from promocode.models import Promocode, UserPromocode
 
 logger = logging.getLogger(__name__)
 
@@ -32,30 +32,47 @@ class PromoCodeService:
         """
 
         try:
-            user = User.objects.get(id=user_id)
-            promocode = PromoCode.objects.get(code=code)
-            user_promocode = UserPromocode.objects.create(
-                user_id=user_id,
-                promocode_id=promocode.id,
-            )
+            with transaction.atomic():
+                user = User.objects.get(id=user_id)
+                try:
+                    promocode = Promocode.objects.select_for_update().get(code=code)
+                except Promocode.DoesNotExist as exc:
+                    raise PromocodeDoesNotExists from exc
 
-            # Проверяем, есть ли разрешение на отправку уведомлений
+                if promocode.is_taken:
+                    raise PromocodeAlreadyUsed
+
+                user_promocode = UserPromocode.objects.create(
+                    user=user,
+                    promocode=promocode,
+                )
+                promocode.is_taken = True
+                promocode.save(update_fields=["is_taken"])
+
             if user.notify_on_promocode:
-                # Отправляем уведомление, что промокод принят
                 send_mail(
                     subject="HappyIceCream",
-                    message=f"Промокод принят: {promocode.code}. "
-                    f"Вы в розыгрыше Happy Ice Cream. Удачи!",
+                    message=(
+                        f"Промокод принят: {promocode.code}. "
+                        f"Вы в розыгрыше Happy Ice Cream. Удачи!"
+                    ),
                     from_email=None,
                     recipient_list=[user.email],
                 )
-        except PromoCode.DoesNotExist as exc:
+        except PromocodeDoesNotExists:
             logger.info(
                 "Promo code not found: code=%s user_id=%s",
                 code,
                 user_id,
             )
-            raise PromocodeDoesNotExists from exc
+            raise
+        except PromocodeAlreadyUsed:
+            logger.info(
+                "Promo code already used: code=%s user_id=%s",
+                code,
+                user_id,
+            )
+            raise
         except IntegrityError as exc:
             logger.info(
                 "Promo code already used: code=%s user_id=%s",
@@ -73,56 +90,58 @@ class PromoCodeService:
         return user_promocode
 
     def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
-        user_and_promocodes = UserPromocode.objects.filter(user_id=user.id).order_by(
-            "-created_at"
-        )
-        promos = PromoCode.objects.in_bulk(
-            [row.promocode_id for row in user_and_promocodes]
+        rows = (
+            UserPromocode.objects.filter(user=user)
+            .select_related("promocode")
+            .order_by("-created_at")
         )
         return [
             {
-                "code": promos[row.promocode_id].code,
+                "code": row.promocode.code,
                 "created_at": row.created_at,
                 "is_won": row.is_won,
             }
-            for row in user_and_promocodes
-            if row.promocode_id in promos
+            for row in rows
         ]
 
 
 class WinnerService:
     def winner_landing_list(self, limit: int) -> list[dict[str, Any]]:
-        all_winners = UserPromocode.objects.filter(is_won=True).order_by("-won_on")[
-            :limit
-        ]
-        users = User.objects.in_bulk([row.user_id for row in all_winners])
-
+        winners = (
+            UserPromocode.objects.filter(is_won=True)
+            .select_related("user")
+            .order_by("-won_on")[:limit]
+        )
         return [
-            {"won_on": row.won_on, "name": users[row.user_id].get_full_name()}
-            for row in all_winners
+            {
+                "won_on": row.won_on,
+                "name": row.user.get_full_name() or row.user.username,
+            }
+            for row in winners
         ]
 
-    def get_random_unused_promocode(self, attempts: int) -> PromoCode | None:
-        unused_promos = PromoCode.objects.filter(is_drawn=False)
-        lo = unused_promos.order_by("id").values_list("id", flat=True).first()
-        hi = unused_promos.order_by("-id").values_list("id", flat=True).first()
+    def get_random_unused_promocode(self, attempts: int) -> Promocode | None:
+        # Кандидаты на розыгрыш: уже применённые, ещё не разыгранные
+        candidates = Promocode.objects.filter(is_drawn=False, is_taken=True)
+        lo = candidates.order_by("id").values_list("id", flat=True).first()
+        hi = candidates.order_by("-id").values_list("id", flat=True).first()
         if lo is None:
             return None
 
         for _ in range(attempts):
             random_index = random.randint(lo, hi)
-            promo = unused_promos.filter(id__gte=random_index).order_by("id").first()
+            promo = candidates.filter(id__gte=random_index).order_by("id").first()
             if promo is not None:
                 return promo
 
-        return unused_promos.order_by("id").first()
+        return candidates.order_by("id").first()
 
     def get_random_winner(self) -> UserPromocode:
         """
         Случайным образом выбирает победителя розыгрыша за текущий день.
 
-        Берёт случайный ещё не разыгранный промокод, ищет пользователя,
-        который его применил, отмечает победу и помечает промокод как is_drawn.
+        Берёт случайный ещё не разыгранный занятый промокод, отмечает победу
+        и помечает промокод как is_drawn.
 
         Raises:
             WinnerAlreadySelectedToday: победитель на сегодня уже выбран.
@@ -132,7 +151,6 @@ class WinnerService:
             Запись UserPromocode победителя.
         """
 
-        # Проверяем, есть ли победитель за сегодня
         today = timezone.localdate()
         if UserPromocode.objects.filter(won_on=today).exists():
             logger.info("Winner already selected today: date=%s", today)
@@ -145,7 +163,7 @@ class WinnerService:
             promocode = self.get_random_unused_promocode(attempts=1)
             if not promocode:
                 logger.warning(
-                    "No undrawn promo codes left during winner selection: attempt=%s",
+                    "No undrawn taken promo codes left: attempt=%s",
                     attempt,
                 )
                 raise NoWinnerFound
@@ -163,7 +181,8 @@ class WinnerService:
                     promocode.save(update_fields=["is_drawn"])
 
                     logger.info(
-                        "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s attempt=%s",
+                        "Winner selected: user_id=%s promocode_id=%s code=%s "
+                        "won_on=%s attempt=%s",
                         user_and_promo.user_id,
                         promocode.id,
                         promocode.code,
@@ -173,7 +192,8 @@ class WinnerService:
                     return user_and_promo
             except UserPromocode.DoesNotExist:
                 logger.debug(
-                    "Drawn promo has no user link, retrying: promocode_id=%s code=%s attempt=%s",
+                    "Taken promo has no user link, retrying: promocode_id=%s "
+                    "code=%s attempt=%s",
                     promocode.id,
                     promocode.code,
                     attempt,

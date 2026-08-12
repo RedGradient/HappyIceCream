@@ -6,14 +6,14 @@ from django.views.decorators.http import require_POST
 
 from auth.models import User
 from promocode.exceptions import NoWinnerFound
-from promocode.models import PromoCode, UserPromocode
+from promocode.models import Promocode, UserPromocode
 from promocode.services import WinnerService
 
 
-@admin.register(PromoCode)
+@admin.register(Promocode)
 class PromoCodeAdmin(ModelAdmin):
-    list_display = ("id", "code", "is_drawn", "created_at")
-    list_filter = ("is_drawn",)
+    list_display = ("id", "code", "is_taken", "is_drawn", "created_at")
+    list_filter = ("is_taken", "is_drawn")
     search_fields = ("code",)
     ordering = ("-id",)
     readonly_fields = ("created_at",)
@@ -21,11 +21,12 @@ class PromoCodeAdmin(ModelAdmin):
 
 @admin.register(UserPromocode)
 class UserPromocodeAdmin(ModelAdmin):
-    list_display = ("id", "user_id", "promocode_id", "is_won", "won_on", "created_at")
+    list_display = ("id", "user", "promocode", "is_won", "won_on", "created_at")
     list_filter = ("is_won", "won_on")
-    search_fields = ("user_id", "promocode_id")
+    search_fields = ("user__username", "user__email", "promocode__code")
     ordering = ("-id",)
     readonly_fields = ("created_at",)
+    raw_id_fields = ("user", "promocode")
 
 
 @require_POST
