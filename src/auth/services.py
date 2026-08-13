@@ -7,11 +7,12 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from auth.exceptions import IncorrectPassword, UserDoesNotExists
 from auth.models import User
+from auth.tokens import email_confirm_token_generator
 
 
 def _build_confirm_url(user: User, request) -> str:
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
+    token = email_confirm_token_generator.make_token(user)
     path = reverse("confirm_email", kwargs={"uidb64": uidb64, "token": token})
     return request.build_absolute_uri(path)
 
@@ -61,7 +62,7 @@ class AuthService:
         except (TypeError, ValueError, OverflowError, User.DoesNotExist) as exc:
             raise ValueError("Invalid confirmation link") from exc
 
-        if not default_token_generator.check_token(user, token):
+        if not email_confirm_token_generator.check_token(user, token):
             raise ValueError("Invalid or expired token")
 
         user.email_confirmed = True

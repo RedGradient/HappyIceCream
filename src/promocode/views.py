@@ -100,6 +100,13 @@ class PromocodeView(APIView):
         code_serializer.is_valid(raise_exception=True)
 
         user = request.user
+        # Для отправки промокода у пользователя должен быть подтвержденный email
+        if not user.email_confirmed:
+            return Response(
+                {"detail": "Для отправки промокода необходимо подтвердить email"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not (user.first_name and user.last_name):
             return Response(
                 {"detail": "Для отправки промокода необходимо указать фамилию и имя"},
