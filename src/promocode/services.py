@@ -25,6 +25,8 @@ PROMO_CODE_ALPHABET_NUMBERS = string.digits
 PROMO_CODE_LENGTH = 8
 PROMO_CODE_BATCH_SIZE = 50_000
 
+GENERATE_PROMO_ATTEMPTS = 10
+
 
 class PromoCodeService:
     def apply(self, code: str, user_id: int) -> UserPromocode:
@@ -250,7 +252,7 @@ class WinnerService:
         """
 
         today = timezone.localdate()
-        yesterday = today - timedelta(days=1)
+        yesterday = today - timedelta(days=1)  # Ищем промокоды, примененные ВЧЕРА
         if DailyDraw.objects.filter(date=today).exists():
             logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")
@@ -261,16 +263,15 @@ class WinnerService:
             yesterday,
         )
 
-        attempts = 10
         promocode = self.get_random_unused_promocode(
-            attempts=attempts,
+            attempts=GENERATE_PROMO_ATTEMPTS,
             on_date=yesterday,
         )
         if not promocode:
             logger.warning(
                 "No undrawn promo codes for pool_date=%s; attempts=%s",
                 yesterday,
-                attempts,
+                GENERATE_PROMO_ATTEMPTS,
             )
             self._record_daily_draw(today)
             return None
