@@ -899,33 +899,35 @@
                     <div class="promo-stage__side">
                         <section class="my-promos" aria-label="Ваши промокоды">
                             <h2 class="my-promos__title">Ваши промокоды</h2>
-                            {% if user_promocodes %}
-                                <div class="my-promos__scroll">
-                                    <table class="my-promos__table">
-                                        <thead>
-                                            <tr>
-                                                <th scope="col">Дата</th>
-                                                <th scope="col">Код</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for item in user_promocodes %}
+                            <div id="my-promos-root">
+                                {% if user_promocodes %}
+                                    <div class="my-promos__scroll">
+                                        <table class="my-promos__table">
+                                            <thead>
                                                 <tr>
-                                                    <td>{{ item.created_at|date:"d.m" }}</td>
-                                                    <td>
-                                                        <span class="my-promos__code">{{ item.code }}</span>
-                                                        {% if item.is_won %}
-                                                            <span class="my-promos__won"> · победа</span>
-                                                        {% endif %}
-                                                    </td>
+                                                    <th scope="col">Дата</th>
+                                                    <th scope="col">Код</th>
                                                 </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            {% else %}
-                                <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
-                            {% endif %}
+                                            </thead>
+                                            <tbody>
+                                                {% for item in user_promocodes %}
+                                                    <tr>
+                                                        <td>{{ item.created_at|date:"d.m" }}</td>
+                                                        <td>
+                                                            <span class="my-promos__code">{{ item.code }}</span>
+                                                            {% if item.is_won %}
+                                                                <span class="my-promos__won"> · победа</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
+                                {% endif %}
+                            </div>
                         </section>
 
                         <section class="notify-pref" aria-label="Уведомления о промокоде">
@@ -1140,6 +1142,64 @@
             });
         });
 
+        function formatPromoDate(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            return `${day}.${month}`;
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;');
+        }
+
+        function renderUserPromocodes(promocodes) {
+            const root = document.getElementById('my-promos-root');
+            if (!root) {
+                return;
+            }
+            if (!Array.isArray(promocodes) || promocodes.length === 0) {
+                root.innerHTML = '<p class="my-promos__empty">Вы ещё не вводили промокоды.</p>';
+                return;
+            }
+
+            const rows = promocodes.map((item) => {
+                const won = item.is_won
+                    ? '<span class="my-promos__won"> · победа</span>'
+                    : '';
+                return (
+                    '<tr>' +
+                    `<td>${escapeHtml(formatPromoDate(item.created_at))}</td>` +
+                    '<td>' +
+                    `<span class="my-promos__code">${escapeHtml(item.code)}</span>${won}` +
+                    '</td>' +
+                    '</tr>'
+                );
+            }).join('');
+
+            root.innerHTML = (
+                '<div class="my-promos__scroll">' +
+                '<table class="my-promos__table">' +
+                '<thead><tr><th scope="col">Дата</th><th scope="col">Код</th></tr></thead>' +
+                `<tbody>${rows}</tbody>` +
+                '</table></div>'
+            );
+        }
+
+        function clearPromoCells() {
+            cells.forEach((cell) => {
+                cell.value = '';
+            });
+            cells[0]?.focus();
+        }
+
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (cells.some((cell) => cell.disabled)) {
@@ -1155,7 +1215,7 @@
 
             setMessage('');
 
-            const response = await fetch('/promocode', {
+            const response = await fetch('{% url "promocode" %}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1171,8 +1231,19 @@
                 return;
             }
 
+            clearPromoCells();
+
+            const listResponse = await fetch('{% url "promocode" %}', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+            const promocodes = listResponse.ok
+                ? await listResponse.json().catch(() => [])
+                : [];
+            renderUserPromocodes(Array.isArray(promocodes) ? promocodes : []);
             setMessage('Промокод принят', { success: true });
-            window.location.reload();
         });
 
         const notifyCheckbox = document.getElementById('notify-on-promocode');
