@@ -1,4 +1,8 @@
 .idea/*
 src/db.sqlite3
+src/staticfiles/
 .env
 /src/static/
+
+__pycache__/
+*.pyc

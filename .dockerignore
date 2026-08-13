@@ -1,0 +1,10 @@
+.venv
+.git
+.idea
+.ruff_cache
+**/__pycache__
+*.pyc
+src/db.sqlite3
+src/staticfiles
+tmp
+.env
