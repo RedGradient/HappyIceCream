@@ -252,31 +252,29 @@ class WinnerService:
 
         today = timezone.localdate()
         yesterday = today - timedelta(days=1)  # Ищем промокоды, примененные ВЧЕРА
-        if DailyDraw.objects.filter(date=today).exists():
-            logger.info("Daily draw already recorded: date=%s", today)
-            raise WinnerAlreadySelectedToday("Победитель сегодня уже определен.")
-
-        logger.info(
-            "Starting daily winner selection: draw_date=%s pool_date=%s",
-            today,
-            yesterday,
-        )
-
-        promocode = self.get_random_unused_promocode(
-            attempts=GENERATE_PROMO_ATTEMPTS,
-            on_date=yesterday,
-        )
-        if not promocode:
-            logger.warning(
-                "No undrawn promo codes for pool_date=%s; attempts=%s",
-                yesterday,
-                GENERATE_PROMO_ATTEMPTS,
-            )
-            self._record_daily_draw(today)
-            return None
-
         try:
             with transaction.atomic():
+                _draw = DailyDraw.objects.create(date=today)
+
+                logger.info(
+                    "Starting daily winner selection: draw_date=%s pool_date=%s",
+                    today,
+                    yesterday,
+                )
+
+                promocode = self.get_random_unused_promocode(
+                    attempts=GENERATE_PROMO_ATTEMPTS,
+                    on_date=yesterday,
+                )
+                if not promocode:
+                    logger.warning(
+                        "No undrawn promo codes for pool_date=%s; attempts=%s",
+                        yesterday,
+                        GENERATE_PROMO_ATTEMPTS,
+                    )
+                    self._record_daily_draw(today)
+                    return None
+
                 user_and_promo = PromoActivation.objects.select_for_update().get(
                     promocode_id=promocode.id
                 )
@@ -314,17 +312,10 @@ class WinnerService:
             self._record_daily_draw(today)
             return None
         except IntegrityError as exc:
-            if DailyDraw.objects.filter(date=today).exists():
-                raise WinnerAlreadySelectedToday(
-                    "Победитель сегодня уже определен."
-                ) from exc
-            logger.info(
-                "No winner today: promo candidate rejected by integrity "
-                "constraint, promocode_id=%s",
-                promocode.id,
-            )
-            self._record_daily_draw(today)
-            return None
+            logger.info("Daily draw already recorded: date=%s", today)
+            raise WinnerAlreadySelectedToday(
+                "Победитель сегодня уже определен."
+            ) from exc
 
     def _notify_winner(self, user: User, promocode: Promocode, date: date):
         send_mail(
