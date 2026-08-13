@@ -10,34 +10,6 @@ from auth.models import User
 from auth.tokens import email_confirm_token_generator
 
 
-def _build_confirm_url(user: User, request) -> str:
-    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-    token = email_confirm_token_generator.make_token(user)
-    path = reverse("confirm_email", kwargs={"uidb64": uidb64, "token": token})
-    return request.build_absolute_uri(path)
-
-
-def _build_password_reset_url(user: User, request) -> str:
-    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    path = reverse(
-        "password_reset_confirm",
-        kwargs={"uidb64": uidb64, "token": token},
-    )
-    return request.build_absolute_uri(path)
-
-
-class EmailService:
-    def send_confirm_email(self, user: User, request):
-        confirm_url = _build_confirm_url(user, request)
-        send_mail(
-            subject="Подтвердите регистрацию",
-            message=f"Перейдите по ссылке: {confirm_url}",
-            from_email=None,
-            recipient_list=[user.email],
-        )
-
-
 class AuthService:
     def register(self, data, request) -> User:
         user = User(
@@ -51,11 +23,12 @@ class AuthService:
         user.email_confirmed = False
         user.save()
 
-        EmailService().send_confirm_email(user, request)
+        self._send_confirm_email(user, request)
 
         return user
 
-    def confirm_email(self, uidb64, token, request):
+    @staticmethod
+    def confirm_email(uidb64, token, request):
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
@@ -69,13 +42,14 @@ class AuthService:
         user.save(update_fields=["email_confirmed"])
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
-    def set_notify_on_promocode(self, user: User, enabled: bool) -> User:
+    @staticmethod
+    def set_notify_on_promocode(user: User, enabled: bool) -> User:
         user.notify_on_promocode = enabled
         user.save(update_fields=["notify_on_promocode"])
         return user
 
+    @staticmethod
     def update_profile(
-        self,
         user: User,
         *,
         first_name: str = "",
@@ -88,7 +62,8 @@ class AuthService:
         user.save(update_fields=["first_name", "last_name", "middle_name"])
         return user
 
-    def set_user_password(self, user: User, old_password: str, new_password: str):
+    @staticmethod
+    def set_user_password(user: User, old_password: str, new_password: str):
         try:
             user = User.objects.get(pk=user.id)
             if not user.check_password(old_password):
@@ -98,17 +73,19 @@ class AuthService:
         except User.DoesNotExist as exc:
             raise UserDoesNotExists() from exc
 
-    def reset_password(self, user: User, new_password: str) -> User:
+    @staticmethod
+    def reset_password(user: User, new_password: str) -> User:
         user.set_password(new_password)
         user.save(update_fields=["password"])
         return user
 
-    def send_password_reset(self, email: str, request):
+    @staticmethod
+    def send_password_reset(email: str, request):
         user = User.objects.filter(email__iexact=email).first()
         if not user:
             return
 
-        reset_url = _build_password_reset_url(user, request)
+        reset_url = AuthService._build_password_reset_url(user, request)
         send_mail(
             subject="Сброс пароля — Happy Ice Cream",
             message=(
@@ -118,3 +95,30 @@ class AuthService:
             from_email=None,
             recipient_list=[user.email],
         )
+
+    @staticmethod
+    def _send_confirm_email(user: User, request):
+        confirm_url = AuthService._build_confirm_url(user, request)
+        send_mail(
+            subject="Подтвердите регистрацию",
+            message=f"Перейдите по ссылке: {confirm_url}",
+            from_email=None,
+            recipient_list=[user.email],
+        )
+
+    @staticmethod
+    def _build_confirm_url(user: User, request) -> str:
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_confirm_token_generator.make_token(user)
+        path = reverse("confirm_email", kwargs={"uidb64": uidb64, "token": token})
+        return request.build_absolute_uri(path)
+
+    @staticmethod
+    def _build_password_reset_url(user: User, request) -> str:
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        path = reverse(
+            "password_reset_confirm",
+            kwargs={"uidb64": uidb64, "token": token},
+        )
+        return request.build_absolute_uri(path)
