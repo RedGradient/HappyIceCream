@@ -126,6 +126,35 @@
             min-width: 0;
         }
 
+        .promo-stage__main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .promo-stage__settings {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            width: 100%;
+        }
+
+        .promo-stage__settings-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.25rem;
+            width: 100%;
+            align-items: start;
+        }
+
+        .promo-stage__settings .account-panel,
+        .promo-stage__settings .notify-pref {
+            width: 100%;
+        }
+
         .promo-stage__side {
             display: flex;
             flex-direction: column;
@@ -486,8 +515,8 @@
         }
 
         .winners {
-            width: min(100%, 22rem);
-            margin: 1.75rem auto 0;
+            width: 100%;
+            margin: 0;
             text-align: left;
         }
 
@@ -699,8 +728,8 @@
             display: none;
         }
 
-        .account-panel + .account-panel {
-            margin-top: 1rem;
+        .promo-stage__settings-row .account-panel {
+            margin-top: 0;
         }
 
         .topbar {
@@ -805,6 +834,10 @@
                 --truck-w: min(100%, 52rem);
             }
 
+            .promo-stage__settings-row {
+                grid-template-columns: 1fr;
+            }
+
             .my-promos__scroll {
                 max-height: 14rem;
             }
@@ -852,48 +885,152 @@
             {% endif %}
 
             <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
-                <form class="promo-stage__input" id="promo-form">
-                    {% csrf_token %}
-                    <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
-                        <div class="ice-truck__scoop" aria-hidden="true"></div>
-                        <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
-                        <div class="ice-truck__body" aria-hidden="true"></div>
-                        <div class="ice-truck__cabin" aria-hidden="true">
-                            <div class="ice-truck__windshield"></div>
-                        </div>
-                        <div class="ice-truck__bumper" aria-hidden="true"></div>
-                        <div class="ice-truck__ground" aria-hidden="true"></div>
-                        <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
-                        <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
+                <div class="promo-stage__main">
+                    <form class="promo-stage__input" id="promo-form">
+                        {% csrf_token %}
+                        <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
+                            <div class="ice-truck__scoop" aria-hidden="true"></div>
+                            <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
+                            <div class="ice-truck__body" aria-hidden="true"></div>
+                            <div class="ice-truck__cabin" aria-hidden="true">
+                                <div class="ice-truck__windshield"></div>
+                            </div>
+                            <div class="ice-truck__bumper" aria-hidden="true"></div>
+                            <div class="ice-truck__ground" aria-hidden="true"></div>
+                            <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
+                            <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
 
-                        <div class="ice-truck__bay">
-                            <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
-                                {% for i in "01234567" %}
-                                    <input
-                                        class="promo-otp__cell"
-                                        type="text"
-                                        maxlength="1"
-                                        inputmode="text"
-                                        autocomplete="one-time-code"
-                                        spellcheck="false"
-                                        placeholder="·"
-                                        aria-label="Символ {{ forloop.counter }}"
-                                        {% if not user.is_authenticated %}disabled{% endif %}
-                                        {% if forloop.first %}id="promo-code-0"{% endif %}
-                                    >
-                                {% endfor %}
+                            <div class="ice-truck__bay">
+                                <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                                    {% for i in "01234567" %}
+                                        <input
+                                            class="promo-otp__cell"
+                                            type="text"
+                                            maxlength="1"
+                                            inputmode="text"
+                                            autocomplete="one-time-code"
+                                            spellcheck="false"
+                                            placeholder="·"
+                                            aria-label="Символ {{ forloop.counter }}"
+                                            {% if not user.is_authenticated %}disabled{% endif %}
+                                            {% if forloop.first %}id="promo-code-0"{% endif %}
+                                        >
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="ice-truck__awning" aria-hidden="true">
+                                <div class="ice-truck__awning-top"></div>
+                                <div class="ice-truck__awning-valance"></div>
                             </div>
                         </div>
 
-                        <div class="ice-truck__awning" aria-hidden="true">
-                            <div class="ice-truck__awning-top"></div>
-                            <div class="ice-truck__awning-valance"></div>
-                        </div>
-                    </div>
+                        <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
+                        <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                    </form>
 
-                    <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
-                    <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
-                </form>
+                    {% if user.is_authenticated %}
+                        <div class="promo-stage__settings">
+                            <div class="promo-stage__settings-row">
+                                <section class="account-panel" aria-label="ФИО">
+                                    <h2 class="account-panel__title">ФИО</h2>
+                                    <form class="profile-form" id="profile-form">
+                                        {% csrf_token %}
+                                        <div class="field">
+                                            <label for="profile-first-name">Имя</label>
+                                            <input
+                                                id="profile-first-name"
+                                                name="first_name"
+                                                type="text"
+                                                autocomplete="given-name"
+                                                maxlength="150"
+                                                value="{{ user.first_name|default_if_none:'' }}"
+                                            >
+                                        </div>
+                                        <div class="field">
+                                            <label for="profile-last-name">Фамилия</label>
+                                            <input
+                                                id="profile-last-name"
+                                                name="last_name"
+                                                type="text"
+                                                autocomplete="family-name"
+                                                maxlength="150"
+                                                value="{{ user.last_name|default_if_none:'' }}"
+                                            >
+                                        </div>
+                                        <div class="field">
+                                            <label for="profile-middle-name">Отчество</label>
+                                            <input
+                                                id="profile-middle-name"
+                                                name="middle_name"
+                                                type="text"
+                                                autocomplete="additional-name"
+                                                maxlength="150"
+                                                value="{{ user.middle_name|default_if_none:'' }}"
+                                            >
+                                        </div>
+                                        <button type="submit">Сохранить ФИО</button>
+                                        <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
+                                    </form>
+                                </section>
+
+                                <section class="account-panel" aria-label="Смена пароля">
+                                    <h2 class="account-panel__title">Смена пароля</h2>
+                                    <form class="password-form" id="password-form">
+                                        {% csrf_token %}
+                                        <div class="field">
+                                            <label for="old-password">Текущий пароль</label>
+                                            <input
+                                                id="old-password"
+                                                name="old_password"
+                                                type="password"
+                                                autocomplete="current-password"
+                                                required
+                                            >
+                                        </div>
+                                        <div class="field">
+                                            <label for="new-password">Новый пароль</label>
+                                            <input
+                                                id="new-password"
+                                                name="new_password"
+                                                type="password"
+                                                autocomplete="new-password"
+                                                required
+                                            >
+                                        </div>
+                                        <div class="field">
+                                            <label for="new-password-confirm">Повтор нового пароля</label>
+                                            <input
+                                                id="new-password-confirm"
+                                                name="new_password_confirm"
+                                                type="password"
+                                                autocomplete="new-password"
+                                                required
+                                            >
+                                        </div>
+                                        <button type="submit">Сохранить пароль</button>
+                                        <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
+                                    </form>
+                                </section>
+                            </div>
+
+                            <section class="notify-pref" aria-label="Уведомления о промокоде">
+                                <label class="notify-pref__label" for="notify-on-promocode">
+                                    <input
+                                        id="notify-on-promocode"
+                                        type="checkbox"
+                                        {% if user.notify_on_promocode %}checked{% endif %}
+                                    >
+                                    <span>Присылать email при успешном вводе промокода</span>
+                                </label>
+                                <p class="notify-pref__hint">
+                                    Можно включить или отключить уведомление в любой момент.
+                                </p>
+                                <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
+                            </section>
+                        </div>
+                    {% endif %}
+                </div>
 
                 {% if user.is_authenticated %}
                     <div class="promo-stage__side">
@@ -930,134 +1067,38 @@
                             </div>
                         </section>
 
-                        <section class="notify-pref" aria-label="Уведомления о промокоде">
-                            <label class="notify-pref__label" for="notify-on-promocode">
-                                <input
-                                    id="notify-on-promocode"
-                                    type="checkbox"
-                                    {% if user.notify_on_promocode %}checked{% endif %}
-                                >
-                                <span>Присылать email при успешном вводе промокода</span>
-                            </label>
-                            <p class="notify-pref__hint">
-                                Можно включить или отключить уведомление в любой момент.
-                            </p>
-                            <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
-                        </section>
-
-                        <section class="account-panel" aria-label="ФИО">
-                            <h2 class="account-panel__title">ФИО</h2>
-                            <form class="profile-form" id="profile-form">
-                                {% csrf_token %}
-                                <div class="field">
-                                    <label for="profile-first-name">Имя</label>
-                                    <input
-                                        id="profile-first-name"
-                                        name="first_name"
-                                        type="text"
-                                        autocomplete="given-name"
-                                        maxlength="150"
-                                        value="{{ user.first_name|default_if_none:'' }}"
-                                    >
-                                </div>
-                                <div class="field">
-                                    <label for="profile-last-name">Фамилия</label>
-                                    <input
-                                        id="profile-last-name"
-                                        name="last_name"
-                                        type="text"
-                                        autocomplete="family-name"
-                                        maxlength="150"
-                                        value="{{ user.last_name|default_if_none:'' }}"
-                                    >
-                                </div>
-                                <div class="field">
-                                    <label for="profile-middle-name">Отчество</label>
-                                    <input
-                                        id="profile-middle-name"
-                                        name="middle_name"
-                                        type="text"
-                                        autocomplete="additional-name"
-                                        maxlength="150"
-                                        value="{{ user.middle_name|default_if_none:'' }}"
-                                    >
-                                </div>
-                                <button type="submit">Сохранить ФИО</button>
-                                <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
-                            </form>
-                        </section>
-
-                        <section class="account-panel" aria-label="Смена пароля">
-                            <h2 class="account-panel__title">Смена пароля</h2>
-                            <form class="password-form" id="password-form">
-                                {% csrf_token %}
-                                <div class="field">
-                                    <label for="old-password">Текущий пароль</label>
-                                    <input
-                                        id="old-password"
-                                        name="old_password"
-                                        type="password"
-                                        autocomplete="current-password"
-                                        required
-                                    >
-                                </div>
-                                <div class="field">
-                                    <label for="new-password">Новый пароль</label>
-                                    <input
-                                        id="new-password"
-                                        name="new_password"
-                                        type="password"
-                                        autocomplete="new-password"
-                                        required
-                                    >
-                                </div>
-                                <div class="field">
-                                    <label for="new-password-confirm">Повтор нового пароля</label>
-                                    <input
-                                        id="new-password-confirm"
-                                        name="new_password_confirm"
-                                        type="password"
-                                        autocomplete="new-password"
-                                        required
-                                    >
-                                </div>
-                                <button type="submit">Сохранить пароль</button>
-                                <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
-                            </form>
+                        <section class="winners" aria-label="Победители розыгрыша">
+                            <h2 class="winners__title">Победители</h2>
+                            {% if winners %}
+                                <table class="winners__table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Дата</th>
+                                            <th scope="col">Имя</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for winner in winners %}
+                                            <tr{% if not winner.name %} class="is-empty"{% endif %}>
+                                                <td>{{ winner.date|date:"d.m" }}</td>
+                                                <td>
+                                                    {% if winner.name %}
+                                                        {{ winner.name }}
+                                                    {% else %}
+                                                        <span class="winners__none">Победителя нет</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
+                            {% endif %}
                         </section>
                     </div>
                 {% endif %}
             </div>
-
-            <section class="winners" aria-label="Победители розыгрыша">
-                <h2 class="winners__title">Победители</h2>
-                {% if winners %}
-                    <table class="winners__table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Дата</th>
-                                <th scope="col">Имя</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for winner in winners %}
-                                <tr{% if not winner.name %} class="is-empty"{% endif %}>
-                                    <td>{{ winner.date|date:"d.m" }}</td>
-                                    <td>
-                                        {% if winner.name %}
-                                            {{ winner.name }}
-                                        {% else %}
-                                            <span class="winners__none">Победителя нет</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
-                {% endif %}
-            </section>
         </div>
     </main>
 
