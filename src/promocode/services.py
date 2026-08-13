@@ -45,9 +45,19 @@ class PromoCodeService:
                 try:
                     promocode = Promocode.objects.select_for_update().get(code=code)
                 except Promocode.DoesNotExist as exc:
+                    logger.info(
+                        "Promo code not found: code=%s user_id=%s",
+                        code,
+                        user_id,
+                    )
                     raise PromocodeDoesNotExist from exc
 
                 if promocode.is_taken:
+                    logger.info(
+                        "Promo code already used: code=%s user_id=%s",
+                        code,
+                        user_id,
+                    )
                     raise PromocodeAlreadyUsed
 
                 user_promocode = UserPromocode.objects.create(
@@ -57,30 +67,7 @@ class PromoCodeService:
                 promocode.is_taken = True
                 promocode.save(update_fields=["is_taken"])
 
-            if user.notify_on_promocode:
-                send_mail(
-                    subject="HappyIceCream",
-                    message=(
-                        f"Промокод принят: {promocode.code}. "
-                        f"Вы в розыгрыше Happy Ice Cream. Удачи!"
-                    ),
-                    from_email=None,
-                    recipient_list=[user.email],
-                )
-        except PromocodeDoesNotExist:
-            logger.info(
-                "Promo code not found: code=%s user_id=%s",
-                code,
-                user_id,
-            )
-            raise
-        except PromocodeAlreadyUsed:
-            logger.info(
-                "Promo code already used: code=%s user_id=%s",
-                code,
-                user_id,
-            )
-            raise
+            self._notify_on_promocode(user, promocode)
         except IntegrityError as exc:
             logger.info(
                 "Promo code already used: code=%s user_id=%s",
@@ -96,6 +83,19 @@ class PromoCodeService:
             promocode.id,
         )
         return user_promocode
+
+    @staticmethod
+    def _notify_on_promocode(user: User, promocode: Promocode) -> None:
+        if user.notify_on_promocode:
+            send_mail(
+                subject="HappyIceCream",
+                message=(
+                    f"Промокод принят: {promocode.code}. "
+                    f"Вы в розыгрыше Happy Ice Cream. Удачи!"
+                ),
+                from_email=None,
+                recipient_list=[user.email],
+            )
 
     @staticmethod
     def _random_code() -> str:
