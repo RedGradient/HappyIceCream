@@ -247,14 +247,17 @@ class WinnerService:
             WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
 
         Returns:
-            UserPromocode победителя либо None, если победителя нет.
+            PromoActivation победителя либо None, если победителя нет.
         """
 
         today = timezone.localdate()
         yesterday = today - timedelta(days=1)  # Ищем промокоды, примененные ВЧЕРА
+        winner: PromoActivation | None = None
+
         try:
             with transaction.atomic():
-                _draw = DailyDraw.objects.create(date=today)
+                # Захватываем день (unique date) — защита от гонки Celery/admin
+                draw = DailyDraw.objects.create(date=today)
 
                 logger.info(
                     "Starting daily winner selection: draw_date=%s pool_date=%s",
@@ -272,50 +275,57 @@ class WinnerService:
                         yesterday,
                         GENERATE_PROMO_ATTEMPTS,
                     )
-                    self._record_daily_draw(today)
                     return None
 
-                user_and_promo = PromoActivation.objects.select_for_update().get(
-                    promocode_id=promocode.id
-                )
-                user_and_promo.is_won = True
-                user_and_promo.won_on = today
-                user_and_promo.save(update_fields=["is_won", "won_on"])
+                try:
+                    with transaction.atomic():
+                        user_and_promo = (
+                            PromoActivation.objects.select_for_update().get(
+                                promocode_id=promocode.id
+                            )
+                        )
+                        user_and_promo.is_won = True
+                        user_and_promo.won_on = today
+                        user_and_promo.save(update_fields=["is_won", "won_on"])
 
-                promocode.is_drawn = True
-                promocode.save(update_fields=["is_drawn"])
+                        promocode.is_drawn = True
+                        promocode.save(update_fields=["is_drawn"])
 
-                self._record_daily_draw(
-                    today,
-                    user=user_and_promo.user,
-                    promocode=promocode,
-                )
-
-            # Отправляем email победителю
-            self._notify_winner(user_and_promo.user, user_and_promo.promocode, today)
-
-            logger.info(
-                "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
-                user_and_promo.user_id,
-                promocode.id,
-                promocode.code,
-                today,
-            )
-            return user_and_promo
-        except PromoActivation.DoesNotExist:
-            logger.info(
-                "No winner today: taken promo has no user link, "
-                "promocode_id=%s code=%s",
-                promocode.id,
-                promocode.code,
-            )
-            self._record_daily_draw(today)
-            return None
+                        draw.user = user_and_promo.user
+                        draw.promocode = promocode
+                        draw.save(update_fields=["user", "promocode"])
+                        winner = user_and_promo
+                except PromoActivation.DoesNotExist:
+                    logger.info(
+                        "No winner today: taken promo has no user link, "
+                        "promocode_id=%s code=%s",
+                        promocode.id,
+                        promocode.code,
+                    )
+                    return None
+                except IntegrityError:
+                    logger.info(
+                        "No winner today: promo candidate rejected by integrity "
+                        "constraint, promocode_id=%s",
+                        promocode.id,
+                    )
+                    return None
         except IntegrityError as exc:
             logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday(
                 "Победитель сегодня уже определен."
             ) from exc
+
+        if winner is not None:
+            self._notify_winner(winner.user, winner.promocode, today)
+            logger.info(
+                "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
+                winner.user_id,
+                winner.promocode_id,
+                winner.promocode.code,
+                today,
+            )
+        return winner
 
     def _notify_winner(self, user: User, promocode: Promocode, date: date):
         send_mail(
