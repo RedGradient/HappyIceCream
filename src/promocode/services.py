@@ -176,7 +176,7 @@ class PromoCodeService:
 
 
 class WinnerService:
-    def winner_landing_list(self, limit: int) -> list[dict[str, Any]]:
+    def winners_list(self, limit: int) -> list[dict[str, Any]]:
         winners = (
             DailyDraw.objects.all().select_related("user").order_by("-date")[:limit]
         )

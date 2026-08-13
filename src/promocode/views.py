@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import ClassVar
 
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -19,15 +19,20 @@ SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
 
 
 def landing(request):
+    return render(request, "landing.html")
+
+
+def account(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+
     winner_limit = 15
-    winners = WinnerService().winner_landing_list(winner_limit)
-    user_promocodes = []
-    if request.user.is_authenticated:
-        user_promocodes = PromoCodeService().user_promocodes_list(request.user)
+    winners = WinnerService().winners_list(winner_limit)
+    user_promocodes = PromoCodeService().user_promocodes_list(request.user)
 
     return render(
         request,
-        "landing.html",
+        "account.html",
         {"winners": winners, "user_promocodes": user_promocodes},
     )
 

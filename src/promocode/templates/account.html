@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Happy Ice Cream</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-top: #c8f0f4;
+            --bg-mid: #ffe8f0;
+            --bg-bottom: #fff3d6;
+            --ink: #1a2b33;
+            --muted: #4a606a;
+            --accent: #ff5c7a;
+            --accent-deep: #e83d5f;
+            --field: rgba(255, 255, 255, 0.92);
+            --ring: rgba(26, 43, 51, 0.14);
+            --shadow: 0 18px 40px rgba(26, 43, 51, 0.08);
+            --danger: #c62828;
+            --truck-body: #fff8fb;
+            --truck-stripe: #7fd8e2;
+            --truck-cabin: #ffe3ea;
+            --truck-metal: #d7e3e8;
+            --truck-tire: #2a3438;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            min-height: 100%;
+            margin: 0;
+        }
+
+        body {
+            font-family: "DM Sans", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(ellipse 80% 50% at 15% 20%, rgba(255, 255, 255, 0.55), transparent 55%),
+                radial-gradient(ellipse 70% 45% at 85% 75%, rgba(255, 92, 122, 0.18), transparent 50%),
+                linear-gradient(165deg, var(--bg-top), var(--bg-mid) 48%, var(--bg-bottom));
+            overflow-x: hidden;
+        }
+
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.55;
+            pointer-events: none;
+            animation: drift 14s ease-in-out infinite alternate;
+        }
+
+        .blob-a {
+            width: 28rem;
+            height: 28rem;
+            background: #9fe7ef;
+            top: -8rem;
+            left: -6rem;
+        }
+
+        .blob-b {
+            width: 22rem;
+            height: 22rem;
+            background: #ffb4c4;
+            right: -5rem;
+            bottom: -4rem;
+            animation-delay: -4s;
+        }
+
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100%;
+            display: grid;
+            place-items: center;
+            padding: 5rem 1.5rem 2rem;
+            text-align: center;
+        }
+
+        .hero-inner {
+            width: min(100%, 72rem);
+            animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .brand {
+            margin: 0;
+            font-family: Sora, sans-serif;
+            font-weight: 800;
+            font-size: clamp(2.4rem, 8vw, 4.2rem);
+            letter-spacing: -0.04em;
+            line-height: 0.95;
+        }
+
+        .tagline {
+            margin: 0.85rem 0 1.5rem;
+            color: var(--muted);
+            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            line-height: 1.45;
+        }
+
+        .user-line {
+            margin: -0.5rem 0 1.25rem;
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        .promo-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
+            width: 100%;
+        }
+
+        .promo-stage__input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.1rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .promo-stage__side {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .promo-stage--with-list {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+            align-items: start;
+            gap: 1.5rem 1.75rem;
+        }
+
+        .promo-stage--with-list .ice-truck {
+            --truck-w: min(100%, 44rem);
+        }
+
+        .promo-stage--with-list .promo-stage__input > button {
+            align-self: center;
+        }
+
+        /* —— Ice cream truck —— */
+        .ice-truck {
+            --truck-w: min(100%, 52rem);
+            position: relative;
+            width: var(--truck-w);
+            aspect-ratio: 16 / 9;
+            margin-inline: auto;
+            filter: drop-shadow(0 22px 32px rgba(26, 43, 51, 0.18));
+            animation: truck-idle 4.5s ease-in-out infinite;
+        }
+
+        .ice-truck__body {
+            position: absolute;
+            left: 4%;
+            right: 8%;
+            top: 28%;
+            bottom: 18%;
+            background:
+                linear-gradient(180deg, #ffffff 0%, var(--truck-body) 55%, #ffeef3 100%);
+            border: 3px solid rgba(26, 43, 51, 0.12);
+            border-radius: 1.4rem 1.1rem 0.55rem 0.55rem;
+            overflow: hidden;
+        }
+
+        .ice-truck__body::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 38%;
+            height: 18%;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--truck-stripe) 0 18px,
+                var(--accent) 18px 36px,
+                #fff6a8 36px 54px
+            );
+            opacity: 0.9;
+        }
+
+        .ice-truck__cabin {
+            position: absolute;
+            right: 0;
+            top: 22%;
+            width: 28%;
+            bottom: 18%;
+            background: linear-gradient(160deg, #fff 0%, var(--truck-cabin) 100%);
+            border: 3px solid rgba(26, 43, 51, 0.12);
+            border-left: 0;
+            border-radius: 0 1.6rem 0.55rem 0;
+        }
+
+        .ice-truck__windshield {
+            position: absolute;
+            inset: 12% 12% 38% 18%;
+            background: linear-gradient(160deg, #dff7fb 0%, #9fd0e0 100%);
+            border-radius: 0.55rem 1rem 0.35rem 0.35rem;
+            border: 2px solid rgba(26, 43, 51, 0.1);
+        }
+
+        .ice-truck__bumper {
+            position: absolute;
+            right: -2%;
+            top: 62%;
+            width: 8%;
+            height: 14%;
+            background: var(--truck-metal);
+            border-radius: 0.2rem 0.55rem 0.55rem 0.2rem;
+            border: 2px solid rgba(26, 43, 51, 0.1);
+        }
+
+        .ice-truck__scoop {
+            position: absolute;
+            left: 18%;
+            top: 6%;
+            width: 14%;
+            aspect-ratio: 1;
+            background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd0da 55%, var(--accent) 100%);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .ice-truck__scoop::after {
+            content: "";
+            position: absolute;
+            left: 28%;
+            top: 78%;
+            width: 44%;
+            height: 55%;
+            background: linear-gradient(180deg, #f6c27a, #e39b45);
+            clip-path: polygon(0 0, 100% 0, 72% 100%, 28% 100%);
+        }
+
+        .ice-truck__sign {
+            position: absolute;
+            left: 8%;
+            top: 12%;
+            z-index: 2;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: #fff;
+            border: 2px solid rgba(26, 43, 51, 0.08);
+            font-family: Sora, sans-serif;
+            font-size: clamp(0.7rem, 2vw, 0.95rem);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: var(--accent-deep);
+            transform: rotate(-6deg);
+        }
+
+        /* Service opening where ice cream is handed out */
+        .ice-truck__bay {
+            position: absolute;
+            left: 10%;
+            top: 45%;
+            width: 52%;
+            height: 18%;
+            z-index: 3;
+            background: linear-gradient(180deg, #1f3138 0%, #314851 100%);
+            border-radius: 0.35rem 0.35rem 0.2rem 0.2rem;
+            border: 2px solid rgba(26, 43, 51, 0.25);
+            display: grid;
+            place-items: center;
+            padding: 0.28rem 0.4rem;
+        }
+
+        .promo-otp {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 0.22rem;
+            width: 100%;
+            height: 100%;
+        }
+
+        .promo-otp__cell {
+            width: 100%;
+            min-width: 0;
+            height: 100%;
+            min-height: 1.8rem;
+            border: 0;
+            border-radius: 0.28rem;
+            background: var(--field);
+            color: var(--ink);
+            font-family: Sora, sans-serif;
+            font-size: clamp(0.7rem, 2.1vw, 1.05rem);
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+            outline: none;
+            caret-color: var(--accent);
+        }
+
+        .promo-otp__cell:focus {
+            box-shadow: inset 0 0 0 2px var(--accent);
+        }
+
+        .promo-otp__cell::placeholder {
+            color: #9aafb8;
+            opacity: 1;
+            font-weight: 600;
+        }
+
+        /* Awning — raised above the bay */
+        .ice-truck__awning {
+            position: absolute;
+            left: 9%;
+            top: 30%;
+            width: 54%;
+            height: 16%;
+            z-index: 4;
+            transform-origin: 50% 0%;
+            transform: translateY(0);
+            animation: awning-sway 3.8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .ice-truck__awning-top {
+            position: absolute;
+            inset: 0 0 35% 0;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(180deg, #fff 0%, #ffe6ec 100%);
+            border: 2px solid rgba(26, 43, 51, 0.1);
+            border-radius: 0.45rem 0.45rem 0.15rem 0.15rem;
+            box-shadow: 0 6px 12px rgba(26, 43, 51, 0.12);
+            overflow: hidden;
+        }
+
+        .ice-truck__awning-valance {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 55%;
+            background:
+                radial-gradient(circle at 50% 0, var(--accent) 0 58%, transparent 59%) 0 0 / 12.5% 100% repeat-x,
+                radial-gradient(circle at 50% 0, var(--truck-stripe) 0 58%, transparent 59%) 6.25% 0 / 12.5% 100% repeat-x;
+        }
+
+        .ice-truck__wheel {
+            position: absolute;
+            bottom: 4%;
+            width: 11%;
+            aspect-ratio: 1;
+            background:
+                radial-gradient(circle at center, #cfd8dc 0 22%, transparent 23%),
+                radial-gradient(circle at center, #6b767b 0 38%, var(--truck-tire) 39% 72%, #1a2225 73%);
+            border-radius: 50%;
+            border: 2px solid rgba(26, 43, 51, 0.2);
+            z-index: 5;
+        }
+
+        .ice-truck__wheel--front {
+            right: 14%;
+        }
+
+        .ice-truck__wheel--rear {
+            left: 18%;
+        }
+
+        .ice-truck__ground {
+            position: absolute;
+            left: 8%;
+            right: 6%;
+            bottom: 7%;
+            height: 4%;
+            background: rgba(26, 43, 51, 0.08);
+            border-radius: 999px;
+            filter: blur(2px);
+            z-index: 1;
+        }
+
+        .promo-stage__input > button {
+            flex: 0 0 auto;
+            height: 3.25rem;
+            padding: 0 1.5rem;
+            border: 0;
+            border-radius: 0.85rem;
+            background: var(--accent);
+            color: #fff;
+            font-family: Sora, sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        .promo-stage__input > button:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .promo-stage__input > button:active {
+            transform: translateY(0);
+        }
+
+        .promo-form__message {
+            flex: 1 0 100%;
+            margin: 0;
+            min-height: 1.25rem;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .promo-form__message.is-success {
+            color: #1b7a4a;
+        }
+
+        .promo-form__message:empty {
+            display: none;
+        }
+
+        .notify-pref {
+            width: 100%;
+            margin: 0;
+            padding: 0.95rem 1.1rem;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(8px);
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .notify-pref__label {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            line-height: 1.35;
+            font-weight: 600;
+        }
+
+        .notify-pref__label input {
+            margin-top: 0.2rem;
+            width: 1.05rem;
+            height: 1.05rem;
+            accent-color: var(--accent-deep);
+            flex: 0 0 auto;
+        }
+
+        .notify-pref__hint {
+            margin: 0.45rem 0 0 1.75rem;
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
+
+        .notify-pref__message {
+            margin: 0.55rem 0 0;
+            min-height: 1.1rem;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .notify-pref__message.is-success {
+            color: #1b7a4a;
+        }
+
+        .notify-pref__message:empty {
+            display: none;
+        }
+
+        .my-promos {
+            width: 100%;
+            margin: 0;
+            text-align: left;
+            align-self: stretch;
+        }
+
+        .winners {
+            width: min(100%, 22rem);
+            margin: 1.75rem auto 0;
+            text-align: left;
+        }
+
+        .my-promos__title,
+        .winners__title {
+            margin: 0 0 0.75rem;
+            font-family: Sora, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+
+        .my-promos__scroll {
+            max-height: min(22rem, 55vh);
+            overflow: auto;
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .my-promos__table,
+        .winners__table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(8px);
+            overflow: hidden;
+        }
+
+        .my-promos__table {
+            border-radius: 0;
+        }
+
+        .winners__table {
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .my-promos__table th,
+        .my-promos__table td,
+        .winners__table th,
+        .winners__table td {
+            padding: 0.65rem 0.9rem;
+            font-size: 0.92rem;
+        }
+
+        .my-promos__table th,
+        .winners__table th {
+            font-family: Sora, sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.35);
+            position: sticky;
+            top: 0;
+        }
+
+        .winners__table th {
+            position: static;
+        }
+
+        .my-promos__table td:first-child,
+        .my-promos__table th:first-child,
+        .winners__table td:first-child,
+        .winners__table th:first-child {
+            width: 35%;
+            white-space: nowrap;
+            color: var(--muted);
+        }
+
+        .my-promos__code {
+            font-family: Sora, sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .my-promos__won {
+            color: var(--accent-deep);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .my-promos__table tbody tr + tr td,
+        .winners__table tbody tr + tr td {
+            border-top: 1px solid rgba(26, 43, 51, 0.08);
+        }
+
+        .winners__table tbody tr.is-empty td {
+            color: var(--muted);
+            font-style: italic;
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .winners__none {
+            font-weight: 600;
+        }
+
+        .my-promos__empty,
+        .winners__empty {
+            margin: 0;
+            padding: 0.9rem;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.92rem;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .account-panel {
+            width: 100%;
+            margin: 0;
+            text-align: left;
+        }
+
+        .account-panel__title {
+            margin: 0 0 0.75rem;
+            font-family: Sora, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+
+        .password-form,
+        .profile-form {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(8px);
+            border-radius: 0.85rem;
+            box-shadow: var(--shadow);
+        }
+
+        .password-form .field,
+        .profile-form .field {
+            display: grid;
+            gap: 0.3rem;
+        }
+
+        .password-form label,
+        .profile-form label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .password-form input,
+        .profile-form input {
+            width: 100%;
+            height: 2.75rem;
+            padding: 0 0.85rem;
+            border: 1px solid var(--ring);
+            border-radius: 0.75rem;
+            background: var(--field);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .password-form input:focus,
+        .profile-form input:focus {
+            border-color: var(--accent);
+        }
+
+        .password-form button,
+        .profile-form button {
+            margin-top: 0.15rem;
+            height: 2.85rem;
+            border: 0;
+            border-radius: 0.75rem;
+            background: var(--accent);
+            color: #fff;
+            font-family: Sora, sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        .password-form button:hover,
+        .profile-form button:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .password-form__message,
+        .profile-form__message {
+            margin: 0;
+            min-height: 1.1rem;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .password-form__message.is-success,
+        .profile-form__message.is-success {
+            color: #1b7a4a;
+        }
+
+        .password-form__message:empty,
+        .profile-form__message:empty {
+            display: none;
+        }
+
+        .account-panel + .account-panel {
+            margin-top: 1rem;
+        }
+
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .topbar-user {
+            margin-right: auto;
+            color: var(--ink);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .topbar a,
+        .topbar button {
+            font-family: Sora, sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: 0;
+            cursor: pointer;
+            transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+        }
+
+        .topbar .btn-ghost {
+            color: var(--ink);
+            background: transparent;
+            padding: 0.55rem 0.85rem;
+        }
+
+        .topbar .btn-ghost:hover {
+            color: var(--accent-deep);
+        }
+
+        .topbar .btn-solid {
+            color: #fff;
+            background: var(--accent);
+            padding: 0.55rem 1rem;
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+        }
+
+        .topbar .btn-solid:hover {
+            background: var(--accent-deep);
+            transform: translateY(-1px);
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(1.25rem);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes drift {
+            from { transform: translate(0, 0) scale(1); }
+            to { transform: translate(1.5rem, 1rem) scale(1.06); }
+        }
+
+        @keyframes truck-idle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        @keyframes awning-sway {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(-1.2deg); }
+        }
+
+        @media (max-width: 860px) {
+            .promo-stage--with-list {
+                grid-template-columns: 1fr;
+            }
+
+            .promo-stage--with-list .ice-truck {
+                --truck-w: min(100%, 52rem);
+            }
+
+            .my-promos__scroll {
+                max-height: 14rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .topbar {
+                flex-wrap: wrap;
+            }
+
+            .topbar-user {
+                width: 100%;
+                margin: 0 0 0.35rem;
+            }
+
+            .ice-truck__bay input {
+                letter-spacing: 0.14em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="blob blob-a" aria-hidden="true"></div>
+    <div class="blob blob-b" aria-hidden="true"></div>
+
+    <header class="topbar">
+        {% if user.is_authenticated %}
+            <span class="topbar-user" id="topbar-user">{{ user.get_full_name|default:user.username }}</span>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button class="btn-solid" type="submit">Выйти</button>
+            </form>
+        {% else %}
+            <a class="btn-ghost" href="{% url 'login' %}">Войти</a>
+            <a class="btn-solid" href="{% url 'signup' %}">Регистрация</a>
+        {% endif %}
+    </header>
+
+    <main class="hero">
+        <div class="hero-inner">
+            <h1 class="brand">Happy Ice Cream</h1>
+            <p class="tagline">Введите промокод для участия в розыгрыше!</p>
+            {% if user.is_authenticated %}
+                <p class="user-line">Вы вошли как {{ user.username }}</p>
+            {% endif %}
+
+            <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
+                <form class="promo-stage__input" id="promo-form">
+                    {% csrf_token %}
+                    <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
+                        <div class="ice-truck__scoop" aria-hidden="true"></div>
+                        <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
+                        <div class="ice-truck__body" aria-hidden="true"></div>
+                        <div class="ice-truck__cabin" aria-hidden="true">
+                            <div class="ice-truck__windshield"></div>
+                        </div>
+                        <div class="ice-truck__bumper" aria-hidden="true"></div>
+                        <div class="ice-truck__ground" aria-hidden="true"></div>
+                        <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
+                        <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
+
+                        <div class="ice-truck__bay">
+                            <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                                {% for i in "01234567" %}
+                                    <input
+                                        class="promo-otp__cell"
+                                        type="text"
+                                        maxlength="1"
+                                        inputmode="text"
+                                        autocomplete="one-time-code"
+                                        spellcheck="false"
+                                        placeholder="·"
+                                        aria-label="Символ {{ forloop.counter }}"
+                                        {% if not user.is_authenticated %}disabled{% endif %}
+                                        {% if forloop.first %}id="promo-code-0"{% endif %}
+                                    >
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="ice-truck__awning" aria-hidden="true">
+                            <div class="ice-truck__awning-top"></div>
+                            <div class="ice-truck__awning-valance"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
+                    <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
+                </form>
+
+                {% if user.is_authenticated %}
+                    <div class="promo-stage__side">
+                        <section class="my-promos" aria-label="Ваши промокоды">
+                            <h2 class="my-promos__title">Ваши промокоды</h2>
+                            {% if user_promocodes %}
+                                <div class="my-promos__scroll">
+                                    <table class="my-promos__table">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Дата</th>
+                                                <th scope="col">Код</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in user_promocodes %}
+                                                <tr>
+                                                    <td>{{ item.created_at|date:"d.m" }}</td>
+                                                    <td>
+                                                        <span class="my-promos__code">{{ item.code }}</span>
+                                                        {% if item.is_won %}
+                                                            <span class="my-promos__won"> · победа</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="notify-pref" aria-label="Уведомления о промокоде">
+                            <label class="notify-pref__label" for="notify-on-promocode">
+                                <input
+                                    id="notify-on-promocode"
+                                    type="checkbox"
+                                    {% if user.notify_on_promocode %}checked{% endif %}
+                                >
+                                <span>Присылать email при успешном вводе промокода</span>
+                            </label>
+                            <p class="notify-pref__hint">
+                                Можно включить или отключить уведомление в любой момент.
+                            </p>
+                            <p class="notify-pref__message" id="notify-message" role="status" aria-live="polite"></p>
+                        </section>
+
+                        <section class="account-panel" aria-label="ФИО">
+                            <h2 class="account-panel__title">ФИО</h2>
+                            <form class="profile-form" id="profile-form">
+                                {% csrf_token %}
+                                <div class="field">
+                                    <label for="profile-first-name">Имя</label>
+                                    <input
+                                        id="profile-first-name"
+                                        name="first_name"
+                                        type="text"
+                                        autocomplete="given-name"
+                                        maxlength="150"
+                                        value="{{ user.first_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="profile-last-name">Фамилия</label>
+                                    <input
+                                        id="profile-last-name"
+                                        name="last_name"
+                                        type="text"
+                                        autocomplete="family-name"
+                                        maxlength="150"
+                                        value="{{ user.last_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="profile-middle-name">Отчество</label>
+                                    <input
+                                        id="profile-middle-name"
+                                        name="middle_name"
+                                        type="text"
+                                        autocomplete="additional-name"
+                                        maxlength="150"
+                                        value="{{ user.middle_name|default_if_none:'' }}"
+                                    >
+                                </div>
+                                <button type="submit">Сохранить ФИО</button>
+                                <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
+                            </form>
+                        </section>
+
+                        <section class="account-panel" aria-label="Смена пароля">
+                            <h2 class="account-panel__title">Смена пароля</h2>
+                            <form class="password-form" id="password-form">
+                                {% csrf_token %}
+                                <div class="field">
+                                    <label for="old-password">Текущий пароль</label>
+                                    <input
+                                        id="old-password"
+                                        name="old_password"
+                                        type="password"
+                                        autocomplete="current-password"
+                                        required
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="new-password">Новый пароль</label>
+                                    <input
+                                        id="new-password"
+                                        name="new_password"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        required
+                                    >
+                                </div>
+                                <div class="field">
+                                    <label for="new-password-confirm">Повтор нового пароля</label>
+                                    <input
+                                        id="new-password-confirm"
+                                        name="new_password_confirm"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        required
+                                    >
+                                </div>
+                                <button type="submit">Сохранить пароль</button>
+                                <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
+                            </form>
+                        </section>
+                    </div>
+                {% endif %}
+            </div>
+
+            <section class="winners" aria-label="Победители розыгрыша">
+                <h2 class="winners__title">Победители</h2>
+                {% if winners %}
+                    <table class="winners__table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Дата</th>
+                                <th scope="col">Имя</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for winner in winners %}
+                                <tr{% if not winner.name %} class="is-empty"{% endif %}>
+                                    <td>{{ winner.date|date:"d.m" }}</td>
+                                    <td>
+                                        {% if winner.name %}
+                                            {{ winner.name }}
+                                        {% else %}
+                                            <span class="winners__none">Победителя нет</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
+                {% endif %}
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const form = document.getElementById('promo-form');
+        const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
+        const messageEl = document.getElementById('promo-message');
+        const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+        const codePattern = /^([A-Z]{8}|[0-9]{8})$/;
+
+        function setMessage(text, { success = false } = {}) {
+            messageEl.textContent = text || '';
+            messageEl.classList.toggle('is-success', Boolean(success && text));
+        }
+
+        function getErrorMessage(payload) {
+            if (!payload || typeof payload !== 'object') {
+                return 'Не удалось отправить промокод';
+            }
+            if (typeof payload.detail === 'string') {
+                return payload.detail;
+            }
+            if (Array.isArray(payload.detail)) {
+                return payload.detail.map((item) => item?.string || item).join(' ');
+            }
+            if (payload.code) {
+                return Array.isArray(payload.code) ? payload.code[0] : payload.code;
+            }
+            return 'Не удалось отправить промокод';
+        }
+
+        function getCode() {
+            return cells.map((cell) => cell.value).join('').toUpperCase();
+        }
+
+        function sanitizeChar(value) {
+            const char = (value || '').slice(-1).toUpperCase();
+            return /^[A-Z0-9]$/.test(char) ? char : '';
+        }
+
+        function fillFromString(text, startIndex = 0) {
+            const chars = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, cells.length - startIndex);
+            chars.split('').forEach((char, offset) => {
+                const index = startIndex + offset;
+                if (cells[index]) {
+                    cells[index].value = char;
+                }
+            });
+            const focusIndex = Math.min(startIndex + chars.length, cells.length - 1);
+            cells[focusIndex]?.focus();
+        }
+
+        cells.forEach((cell, index) => {
+            cell.addEventListener('input', () => {
+                const char = sanitizeChar(cell.value);
+                cell.value = char;
+                if (char && index < cells.length - 1) {
+                    cells[index + 1].focus();
+                }
+            });
+
+            cell.addEventListener('keydown', (event) => {
+                if (event.key === 'Backspace' && !cell.value && index > 0) {
+                    cells[index - 1].focus();
+                    cells[index - 1].value = '';
+                    event.preventDefault();
+                }
+                if (event.key === 'ArrowLeft' && index > 0) {
+                    cells[index - 1].focus();
+                    event.preventDefault();
+                }
+                if (event.key === 'ArrowRight' && index < cells.length - 1) {
+                    cells[index + 1].focus();
+                    event.preventDefault();
+                }
+            });
+
+            cell.addEventListener('paste', (event) => {
+                event.preventDefault();
+                const text = event.clipboardData?.getData('text') || '';
+                fillFromString(text, index);
+            });
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (cells.some((cell) => cell.disabled)) {
+                return;
+            }
+
+            const code = getCode();
+            if (!codePattern.test(code)) {
+                setMessage('Промокод должен состоять из 8 букв или 8 цифр');
+                cells[0]?.focus();
+                return;
+            }
+
+            setMessage('');
+
+            const response = await fetch('/promocode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ code }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                setMessage(getErrorMessage(payload));
+                return;
+            }
+
+            setMessage('Промокод принят', { success: true });
+            window.location.reload();
+        });
+
+        const notifyCheckbox = document.getElementById('notify-on-promocode');
+        const notifyMessageEl = document.getElementById('notify-message');
+        if (notifyCheckbox && notifyMessageEl) {
+            function setNotifyMessage(text, { success = false } = {}) {
+                notifyMessageEl.textContent = text || '';
+                notifyMessageEl.classList.toggle('is-success', Boolean(success && text));
+            }
+
+            notifyCheckbox.addEventListener('change', async () => {
+                const enabled = notifyCheckbox.checked;
+                setNotifyMessage('');
+                notifyCheckbox.disabled = true;
+
+                try {
+                    const response = await fetch('{% url "notify_on_promocode" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken,
+                        },
+                        body: JSON.stringify({ notify_on_promocode: enabled }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        notifyCheckbox.checked = !enabled;
+                        setNotifyMessage(
+                            typeof payload.detail === 'string'
+                                ? payload.detail
+                                : 'Не удалось сохранить настройку'
+                        );
+                        return;
+                    }
+                    setNotifyMessage(
+                        enabled ? 'Уведомления включены' : 'Уведомления отключены',
+                        { success: true }
+                    );
+                } catch (_error) {
+                    notifyCheckbox.checked = !enabled;
+                    setNotifyMessage('Не удалось сохранить настройку');
+                } finally {
+                    notifyCheckbox.disabled = false;
+                }
+            });
+        }
+
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) {
+            const profileMessageEl = document.getElementById('profile-message');
+            const profileCsrf = profileForm.querySelector('[name=csrfmiddlewaretoken]').value;
+            const topbarUser = document.getElementById('topbar-user');
+
+            function setProfileMessage(text, { success = false } = {}) {
+                profileMessageEl.textContent = text || '';
+                profileMessageEl.classList.toggle('is-success', Boolean(success && text));
+            }
+
+            function getProfileErrorMessage(payload) {
+                if (!payload || typeof payload !== 'object') {
+                    return 'Не удалось сохранить ФИО';
+                }
+                if (typeof payload.detail === 'string') {
+                    return payload.detail;
+                }
+                if (Array.isArray(payload.detail)) {
+                    return payload.detail.map((item) => item?.string || item).join(' ');
+                }
+                for (const key of ['first_name', 'last_name', 'middle_name', 'non_field_errors']) {
+                    const value = payload[key];
+                    if (!value) continue;
+                    return Array.isArray(value) ? value[0] : value;
+                }
+                return 'Не удалось сохранить ФИО';
+            }
+
+            profileForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                setProfileMessage('');
+
+                const body = {
+                    first_name: profileForm.first_name.value.trim(),
+                    last_name: profileForm.last_name.value.trim(),
+                    middle_name: profileForm.middle_name.value.trim(),
+                };
+
+                const response = await fetch('{% url "update_profile" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': profileCsrf,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    setProfileMessage(getProfileErrorMessage(payload));
+                    return;
+                }
+
+                if (topbarUser && payload.full_name) {
+                    topbarUser.textContent = payload.full_name;
+                }
+                setProfileMessage('ФИО обновлены', { success: true });
+            });
+        }
+
+        const passwordForm = document.getElementById('password-form');
+        if (passwordForm) {
+            const passwordMessageEl = document.getElementById('password-message');
+            const passwordCsrf = passwordForm.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            function setPasswordMessage(text, { success = false } = {}) {
+                passwordMessageEl.textContent = text || '';
+                passwordMessageEl.classList.toggle('is-success', Boolean(success && text));
+            }
+
+            function getPasswordErrorMessage(payload) {
+                if (!payload || typeof payload !== 'object') {
+                    return 'Не удалось сменить пароль';
+                }
+                if (typeof payload.detail === 'string') {
+                    return payload.detail;
+                }
+                if (Array.isArray(payload.detail)) {
+                    return payload.detail.map((item) => item?.string || item).join(' ');
+                }
+                for (const key of ['old_password', 'new_password', 'new_password_confirm', 'non_field_errors']) {
+                    const value = payload[key];
+                    if (!value) continue;
+                    return Array.isArray(value) ? value[0] : value;
+                }
+                return 'Не удалось сменить пароль';
+            }
+
+            passwordForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                setPasswordMessage('');
+
+                const body = {
+                    old_password: passwordForm.old_password.value,
+                    new_password: passwordForm.new_password.value,
+                    new_password_confirm: passwordForm.new_password_confirm.value,
+                };
+
+                const response = await fetch('{% url "change_password" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': passwordCsrf,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    setPasswordMessage(getPasswordErrorMessage(payload));
+                    return;
+                }
+
+                passwordForm.reset();
+                setPasswordMessage('Пароль обновлён', { success: true });
+            });
+        }
+    </script>
+</body>
+</html>

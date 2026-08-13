@@ -23,13 +23,13 @@ from auth.services import AuthService
 
 def signup(request):
     if request.user.is_authenticated:
-        return redirect("landing")
+        return redirect("account")
 
     if request.method == "POST":
         form = SignUpForm(request.POST)
         if form.is_valid():
             AuthService().register(form.cleaned_data, request=request)
-            return redirect("landing")
+            return redirect("login")
     else:
         form = SignUpForm()
 
@@ -38,13 +38,13 @@ def signup(request):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect("landing")
+        return redirect("account")
 
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             login(request, form.get_user())
-            return redirect("landing")
+            return redirect("account")
     else:
         form = AuthenticationForm(request)
 
@@ -54,14 +54,14 @@ def login_view(request):
 def logout_view(request):
     if request.method == "POST":
         logout(request)
-    return redirect("landing")
+    return redirect("login")
 
 
 @require_GET
 def confirm_email(request, uidb64, token):
     try:
         AuthService().confirm_email(uidb64, token, request)
-        return redirect("landing")
+        return redirect("account")
     except Exception:
         return render(request, "confirm_email_invalid.html", status=400)
 
@@ -138,7 +138,7 @@ def change_password(request):
 
 def forgot_password(request):
     if request.user.is_authenticated:
-        return redirect("landing")
+        return redirect("account")
 
     if request.method == "POST":
         form = ForgotPasswordForm(request.POST)
