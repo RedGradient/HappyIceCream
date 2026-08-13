@@ -44,15 +44,7 @@ class PromoCodeService:
         try:
             with transaction.atomic():
                 user = User.objects.get(id=user_id)
-                try:
-                    promocode = Promocode.objects.select_for_update().get(code=code)
-                except Promocode.DoesNotExist as exc:
-                    logger.info(
-                        "Promo code not found: code=%s user_id=%s",
-                        code,
-                        user_id,
-                    )
-                    raise PromocodeDoesNotExist from exc
+                promocode = Promocode.objects.select_for_update().get(code=code)
 
                 if promocode.is_taken:
                     logger.info(
@@ -70,6 +62,13 @@ class PromoCodeService:
                 promocode.save(update_fields=["is_taken"])
 
             self._notify_on_promocode(user, promocode)
+        except Promocode.DoesNotExist as exc:
+            logger.info(
+                "Promo code not found: code=%s user_id=%s",
+                code,
+                user_id,
+            )
+            raise PromocodeDoesNotExist from exc
         except IntegrityError as exc:
             logger.info(
                 "Promo code already used: code=%s user_id=%s",
