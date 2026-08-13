@@ -8,7 +8,7 @@ from auth.models import User
 from config.tasks import generate_promocodes
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
-from promocode.models import DailyDraw, Promocode, UserPromocode
+from promocode.models import DailyDraw, PromoActivation, Promocode
 from promocode.services import ExcelService, WinnerService
 
 
@@ -20,7 +20,7 @@ class PromoCodeAdmin(ModelAdmin):
     ordering = ("-id",)
 
 
-@admin.register(UserPromocode)
+@admin.register(PromoActivation)
 class UserPromocodeAdmin(ModelAdmin):
     list_display = ("id", "user", "promocode", "is_won", "won_on", "created_at")
     list_filter = ("is_won", "won_on", "created_at")

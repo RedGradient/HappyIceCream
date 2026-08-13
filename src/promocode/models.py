@@ -41,7 +41,7 @@ class Promocode(models.Model):
         return self.code
 
 
-class UserPromocode(models.Model):
+class PromoActivation(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

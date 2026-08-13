@@ -10,7 +10,7 @@ from promocode.exceptions import (
     PromocodeDoesNotExist,
     WinnerAlreadySelectedToday,
 )
-from promocode.models import DailyDraw, Promocode, UserPromocode
+from promocode.models import DailyDraw, PromoActivation, Promocode
 from promocode.services import GENERATE_PROMO_ATTEMPTS, PromoCodeService, WinnerService
 
 
@@ -43,7 +43,9 @@ class PromocodeServiceTests(TestCase):
 
         result = self.service.apply(promocode.code, self.user.id)
 
-        user_promocode = UserPromocode.objects.get(user=self.user, promocode=promocode)
+        user_promocode = PromoActivation.objects.get(
+            user=self.user, promocode=promocode
+        )
         self.assertEqual(user_promocode.user, result.user)
         self.assertEqual(user_promocode.promocode, result.promocode)
         self.assertEqual(user_promocode.created_at, result.created_at)
@@ -94,7 +96,7 @@ class PromocodeServiceTests(TestCase):
             _create_promocode(code)
             user_promocode = self.service.apply(code, self.user.id)
             # Фиксируем created_at, чтобы порядок в списке был стабильным
-            UserPromocode.objects.filter(pk=user_promocode.pk).update(
+            PromoActivation.objects.filter(pk=user_promocode.pk).update(
                 created_at=base_time + timedelta(seconds=index)
             )
 
@@ -132,7 +134,7 @@ class WinnerServiceTests(TestCase):
         promocode.is_taken = True
         promocode.save(update_fields=["is_taken"])
         # Создаем связь UserPromocode
-        user_promocode = UserPromocode.objects.create(
+        user_promocode = PromoActivation.objects.create(
             user=user,
             promocode=promocode,
             # Розыгрыш происходит среди промо, использованных день назад
@@ -233,7 +235,7 @@ class WinnerServiceTests(TestCase):
         old_promo.is_taken = True
         old_promo.is_drawn = True
         old_promo.save(update_fields=["is_taken", "is_drawn"])
-        UserPromocode.objects.create(
+        PromoActivation.objects.create(
             user=user,
             promocode=old_promo,
             is_won=True,
@@ -245,7 +247,7 @@ class WinnerServiceTests(TestCase):
         candidate = _create_promocode("BBBBBBBB")
         candidate.is_taken = True
         candidate.save(update_fields=["is_taken"])
-        UserPromocode.objects.create(
+        PromoActivation.objects.create(
             user=user,
             promocode=candidate,
             # Розыгрыш происходит среди промо, использованных день назад

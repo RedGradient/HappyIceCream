@@ -16,7 +16,7 @@ from promocode.exceptions import (
     PromocodeDoesNotExist,
     WinnerAlreadySelectedToday,
 )
-from promocode.models import DailyDraw, Promocode, UserPromocode
+from promocode.models import DailyDraw, PromoActivation, Promocode
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ GENERATE_PROMO_ATTEMPTS = 10
 
 
 class PromoCodeService:
-    def apply(self, code: str, user_id: int) -> UserPromocode:
+    def apply(self, code: str, user_id: int) -> PromoActivation:
         """
         Привязывает существующий промокод к пользователю.
 
@@ -54,7 +54,7 @@ class PromoCodeService:
                     )
                     raise PromocodeAlreadyUsed
 
-                user_promocode = UserPromocode.objects.create(
+                user_promocode = PromoActivation.objects.create(
                     user=user,
                     promocode=promocode,
                 )
@@ -162,7 +162,7 @@ class PromoCodeService:
 
     def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
         rows = (
-            UserPromocode.objects.filter(user=user)
+            PromoActivation.objects.filter(user=user)
             .select_related("promocode")
             .order_by("-created_at")
         )
@@ -236,7 +236,7 @@ class WinnerService:
                 "Победитель сегодня уже определен."
             ) from exc
 
-    def get_random_winner(self) -> UserPromocode | None:
+    def get_random_winner(self) -> PromoActivation | None:
         """
         Случайным образом выбирает победителя розыгрыша за текущий день.
 
@@ -277,7 +277,7 @@ class WinnerService:
 
         try:
             with transaction.atomic():
-                user_and_promo = UserPromocode.objects.select_for_update().get(
+                user_and_promo = PromoActivation.objects.select_for_update().get(
                     promocode_id=promocode.id
                 )
                 user_and_promo.is_won = True
@@ -304,7 +304,7 @@ class WinnerService:
                 today,
             )
             return user_and_promo
-        except UserPromocode.DoesNotExist:
+        except PromoActivation.DoesNotExist:
             logger.info(
                 "No winner today: taken promo has no user link, "
                 "promocode_id=%s code=%s",
