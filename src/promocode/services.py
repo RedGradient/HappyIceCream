@@ -1,3 +1,4 @@
+import io
 import logging
 import random
 import secrets
@@ -5,6 +6,7 @@ import string
 from datetime import date, timedelta
 from typing import Any
 
+import pandas as pd
 from django.core.files.uploadedfile import UploadedFile
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
@@ -339,6 +341,72 @@ class WinnerService:
             from_email=None,
             recipient_list=[user.email],
         )
+
+
+class AnalyticsService:
+    @staticmethod
+    def summary() -> dict[str, Any]:
+        """Сводные метрики для админки."""
+
+        today = timezone.localdate()
+        # Кандидаты для следующего розыгрыша: если сегодня ещё не закрыт — показ активаций за вчера;
+        # Если розыгрыш сегодня уже был — активации за сегодня (на завтра).
+        if DailyDraw.objects.filter(date=today).exists():
+            pool_date = today
+            next_draw_date = today + timedelta(days=1)
+        else:
+            pool_date = today - timedelta(days=1)
+            next_draw_date = today
+
+        next_draw_candidates = Promocode.objects.filter(
+            is_taken=True,
+            is_drawn=False,
+            user_promocode__created_at__date=pool_date,
+        ).count()
+
+        return {
+            "users_total": User.objects.count(),
+            "users_email_confirmed": User.objects.filter(email_confirmed=True).count(),
+            "unique_participants": (
+                User.objects.filter(user_promocodes__isnull=False).distinct().count()
+            ),
+            "activations_total": PromoActivation.objects.count(),
+            "free_promocodes": Promocode.objects.filter(is_taken=False).count(),
+            "next_draw_candidates": next_draw_candidates,
+            "next_draw_date": next_draw_date,
+            "pool_date": pool_date,
+            "winners_total": DailyDraw.objects.filter(user__isnull=False).count(),
+            "days_without_winner": DailyDraw.objects.filter(user__isnull=True).count(),
+        }
+
+    @staticmethod
+    def export_analytics_as_excel() -> tuple[bytes, str]:
+        metrics = AnalyticsService.summary()
+        labels = {
+            "users_total": "Всего пользователей",
+            "users_email_confirmed": "Подтвердили email",
+            "unique_participants": "Уникальные участники",
+            "activations_total": "Всего активаций",
+            "free_promocodes": "Свободные промокоды",
+            "next_draw_candidates": "Кандидаты на следующий розыгрыш",
+            "next_draw_date": "Дата следующего розыгрыша",
+            "pool_date": "Дата пула кандидатов",
+            "winners_total": "Победители за всё время",
+            "days_without_winner": "Дни без победителя",
+        }
+        rows = []
+        for key, label in labels.items():
+            value = metrics[key]
+            if isinstance(value, date):
+                value = value.strftime("%d.%m.%Y")
+            rows.append((label, value))
+
+        df = pd.DataFrame(rows, columns=["Показатель", "Значение"])
+
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False)
+        filename = f"analytics-{timezone.localtime().strftime('%Y-%m-%d_%H-%M')}.xlsx"
+        return buffer.getvalue(), filename
 
 
 class ExcelService:

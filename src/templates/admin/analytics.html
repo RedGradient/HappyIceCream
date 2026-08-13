@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<style>
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+        gap: 1rem;
+        margin: 0 0 1.5rem;
+    }
+
+    .analytics-card {
+        margin: 0;
+        padding: 1rem 1.1rem;
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #e8e8e8);
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .analytics-card__label {
+        margin: 0 0 0.45rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+
+    .analytics-card__value {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--body-fg, #333);
+    }
+
+    .analytics-hint {
+        margin: 0 0 1.25rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
+    }
+
+    .analytics-section {
+        margin: 0 0 0.75rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--body-quiet-color, #666);
+    }
+
+    .analytics-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 1.25rem;
+    }
+
+    .analytics-toolbar .button {
+        padding: 0.55rem 1.15rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.2;
+        text-decoration: none;
+    }
+</style>
+
+<p class="analytics-hint">
+    Кандидаты на розыгрыш {{ stats.next_draw_date|date:"d.m.Y" }} —
+    активации за {{ stats.pool_date|date:"d.m.Y" }} (ещё не разыгранные).
+</p>
+
+<h2 class="analytics-section">Пользователи</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Всего пользователей</p>
+        <p class="analytics-card__value">{{ stats.users_total }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Подтвердили email</p>
+        <p class="analytics-card__value">{{ stats.users_email_confirmed }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Уникальные участники</p>
+        <p class="analytics-card__value">{{ stats.unique_participants }}</p>
+    </div>
+</div>
+
+<h2 class="analytics-section">Промокоды и розыгрыш</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Всего активаций</p>
+        <p class="analytics-card__value">{{ stats.activations_total }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Свободные промокоды</p>
+        <p class="analytics-card__value">{{ stats.free_promocodes }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Кандидаты на следующий розыгрыш</p>
+        <p class="analytics-card__value">{{ stats.next_draw_candidates }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Победители за всё время</p>
+        <p class="analytics-card__value">{{ stats.winners_total }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Дни без победителя</p>
+        <p class="analytics-card__value">{{ stats.days_without_winner }}</p>
+    </div>
+</div>
+
+<div class="analytics-toolbar">
+    <a class="button" href="{% url 'admin:analytics_export_excel' %}">Выгрузить в Excel</a>
+</div>
+{% endblock %}

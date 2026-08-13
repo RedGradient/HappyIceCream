@@ -98,6 +98,14 @@
 
         <ul class="promo-actions__list">
             <li class="promo-actions__row">
+                <span class="promo-actions__label">Аналитика</span>
+                <div class="promo-actions__controls">
+                    <a class="button" href="{% url 'admin:analytics' %}">Открыть сводку</a>
+                    <p class="promo-actions__hint">Пользователи, активации, розыгрыш</p>
+                </div>
+            </li>
+
+            <li class="promo-actions__row">
                 <span class="promo-actions__label">Розыгрыш</span>
                 <form
                     class="promo-actions__controls"

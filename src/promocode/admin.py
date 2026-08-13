@@ -1,15 +1,16 @@
 from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
-from django.shortcuts import redirect
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
 from django.urls import path
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from auth.models import User
 from config.tasks import generate_promocodes
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
 from promocode.models import DailyDraw, PromoActivation, Promocode
-from promocode.services import ExcelService, WinnerService
+from promocode.services import AnalyticsService, ExcelService, WinnerService
 
 
 @admin.register(Promocode)
@@ -97,11 +98,44 @@ def load_from_excel(request):
     return redirect("admin:index")
 
 
+def analytics_view(request):
+    stats = AnalyticsService.summary()
+    context = {
+        **admin.site.each_context(request),
+        "title": "Аналитика",
+        "stats": stats,
+    }
+    return render(request, "admin/analytics.html", context)
+
+
+@require_GET
+def analytics_export_excel_view(request):
+    content, filename = AnalyticsService.export_analytics_as_excel()
+    response = HttpResponse(
+        content,
+        content_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 _original_get_urls = admin.site.get_urls
 
 
 def _get_urls():
     custom_urls = [
+        path(
+            "analytics/",
+            admin.site.admin_view(analytics_view),
+            name="analytics",
+        ),
+        path(
+            "analytics/export/",
+            admin.site.admin_view(analytics_export_excel_view),
+            name="analytics_export_excel",
+        ),
         path(
             "pick-random-winner/",
             admin.site.admin_view(pick_random_winner_view),
