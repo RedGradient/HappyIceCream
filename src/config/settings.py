@@ -158,12 +158,35 @@ STATIC_URL = "/static/"
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# Resend SMTP: https://resend.com/docs/send-with-smtp
 
-MAILERS = {
-    "default": {
-        "BACKEND": "config.email.DecodedConsoleEmailBackend",
-    },
-}
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    "Happy Ice Cream <noreply@happy-ice-cream.com>",
+)
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+_resend_api_key = os.environ.get("RESEND_API_KEY", "").strip()
+if _resend_api_key:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": os.environ.get("RESEND_SMTP_HOST", "smtp.resend.com"),
+                "port": int(os.environ.get("RESEND_SMTP_PORT", "587")),
+                "username": os.environ.get("RESEND_SMTP_USERNAME", "resend"),
+                "password": _resend_api_key,
+                "use_tls": os.environ.get("RESEND_SMTP_USE_TLS", "1") == "1",
+            },
+        },
+    }
+else:
+    # Без ключа письма пишутся в консоль
+    MAILERS = {
+        "default": {
+            "BACKEND": "config.email.DecodedConsoleEmailBackend",
+        },
+    }
 
 # Используем собственную реализацию User для аутентификации
 AUTH_USER_MODEL = "user_auth.User"
