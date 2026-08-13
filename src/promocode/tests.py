@@ -1,13 +1,33 @@
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 from django.utils import timezone
 
 from auth.models import User
-from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExist
-from promocode.models import Promocode, UserPromocode
-from promocode.services import PromoCodeService
+from promocode.exceptions import (
+    PromocodeAlreadyUsed,
+    PromocodeDoesNotExist,
+    WinnerAlreadySelectedToday,
+)
+from promocode.models import DailyDraw, Promocode, UserPromocode
+from promocode.services import GENERATE_PROMO_ATTEMPTS, PromoCodeService, WinnerService
+
+
+def _create_promocode(code: str) -> Promocode:
+    return Promocode.objects.create(
+        code=code,
+        is_taken=False,
+        is_drawn=False,
+    )
+
+
+def _create_user() -> User:
+    return User.objects.create(
+        username="john_doe",
+        email="john@example.com",
+        notify_on_promocode=True,
+    )
 
 
 @patch.object(PromoCodeService, "_notify_on_promocode")
@@ -15,22 +35,11 @@ class PromocodeServiceTests(TestCase):
     def setUp(self):
         self.service = PromoCodeService()
         # Создаем пользователя
-        self.user = User.objects.create(
-            username="john_doe",
-            email="john@example.com",
-            notify_on_promocode=True,
-        )
-
-    def _create_promocode(self, code: str) -> Promocode:
-        return Promocode.objects.create(
-            code=code,
-            is_taken=False,
-            is_drawn=False,
-        )
+        self.user = _create_user()
 
     def test_apply_ok(self, notify_mock):
         # Создаем promocode в БД
-        promocode = self._create_promocode("ABCDEFGH")
+        promocode = _create_promocode("ABCDEFGH")
 
         result = self.service.apply(promocode.code, self.user.id)
 
@@ -61,7 +70,7 @@ class PromocodeServiceTests(TestCase):
         # Создаем пользователя 1, который заберет промокод
         user_1 = self.user
         # Создаем промокод
-        promocode = self._create_promocode("TAKENABC")
+        promocode = _create_promocode("TAKENABC")
         # Пользователь 1 забирает промокод
         self.service.apply(promocode.code, user_1.id)
 
@@ -82,7 +91,7 @@ class PromocodeServiceTests(TestCase):
         codes = ["AAAAAAAA", "BBBBBBBB", "CCCCCCCC", "12345678", "87654321"]
         base_time = timezone.now()
         for index, code in enumerate(codes):
-            self._create_promocode(code)
+            _create_promocode(code)
             user_promocode = self.service.apply(code, self.user.id)
             # Фиксируем created_at, чтобы порядок в списке был стабильным
             UserPromocode.objects.filter(pk=user_promocode.pk).update(
@@ -98,3 +107,160 @@ class PromocodeServiceTests(TestCase):
             self.assertIn("created_at", row)
             self.assertIn("is_won", row)
             self.assertFalse(row["is_won"])
+
+
+class WinnerServiceTests(TestCase):
+    @patch.object(WinnerService, "_notify_winner")
+    def test_get_random_winner_ok(self, notify_mock):
+        """
+        None если нет self.get_random_unused_promocode
+        WinnerAlreadySelectedToday
+        Побочные эффекты UserPromocode, promocode, DailyDraw
+        Замокать self._notify_winner
+
+        UserPromocode.DoesNotExist -> None
+
+        IntegrityError ->
+        """
+
+        service = WinnerService()
+        today = timezone.localdate()
+
+        # Создание юзера и промокода
+        user = _create_user()
+        promocode = _create_promocode("ABCDEFGH")
+        promocode.is_taken = True
+        promocode.save(update_fields=["is_taken"])
+        # Создаем связь UserPromocode
+        user_promocode = UserPromocode.objects.create(
+            user=user,
+            promocode=promocode,
+            # Розыгрыш происходит среди промо, использованных день назад
+            created_at=timezone.now() - timedelta(days=1),
+        )
+
+        winner = service.get_random_winner()
+        # Это чтобы утихомирить статический анализатор
+        assert winner is not None
+
+        self.assertIsNotNone(winner)
+        self.assertEqual(user_promocode.user, winner.user)
+        self.assertEqual(user_promocode.promocode.code, winner.promocode.code)
+
+        user_promocode.refresh_from_db()
+        self.assertTrue(user_promocode.is_won)
+        self.assertEqual(user_promocode.won_on, today)
+
+        promocode.refresh_from_db()
+        self.assertTrue(promocode.is_taken)
+        self.assertTrue(promocode.is_drawn)
+
+        daily_draw = DailyDraw.objects.get(date=today)
+        self.assertEqual(daily_draw.user_id, user.id)
+        self.assertEqual(daily_draw.promocode_id, promocode.id)
+
+        notify_mock.assert_called_once_with(user, promocode, today)
+
+    def test_random_winner_winner_already_selected_today(self):
+        # Не обязательно, чтобы user и promocode существовали,
+        # главное - факт проведения розыгрыша
+        DailyDraw.objects.create(user=None, promocode=None, date=timezone.localdate())
+
+        with self.assertRaises(WinnerAlreadySelectedToday):
+            WinnerService().get_random_winner()
+
+    @patch.object(WinnerService, "_notify_winner")
+    def test_random_winner_no_random_promocode(self, notify_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+
+        # Случайный промокод должен быть None
+        service.get_random_unused_promocode = MagicMock()
+        service.get_random_unused_promocode.return_value = None
+
+        # Тогда результат будет None
+        winner = service.get_random_winner()
+        self.assertIsNone(winner)
+
+        daily_draw = DailyDraw.objects.get(date=today)
+        self.assertEqual(daily_draw.date, today)
+        self.assertIsNone(daily_draw.user)
+        self.assertIsNone(daily_draw.promocode)
+        self.assertEqual(DailyDraw.objects.count(), 1)
+
+        service.get_random_unused_promocode.assert_called_once_with(
+            attempts=GENERATE_PROMO_ATTEMPTS,
+            on_date=yesterday,
+        )
+        notify_mock.assert_not_called()
+
+    @patch.object(WinnerService, "_notify_winner")
+    def test_random_winner_user_promocode_not_exists(self, notify_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+
+        # Taken-промокод без связи UserPromocode
+        unused_promo = _create_promocode("AAAAAAAA")
+        unused_promo.is_taken = True
+        unused_promo.save(update_fields=["is_taken"])
+
+        service.get_random_unused_promocode = MagicMock(return_value=unused_promo)
+
+        winner = service.get_random_winner()
+        self.assertIsNone(winner)
+
+        unused_promo.refresh_from_db()
+        self.assertTrue(unused_promo.is_taken)
+        self.assertFalse(unused_promo.is_drawn)
+
+        daily_draw = DailyDraw.objects.get(date=today)
+        self.assertIsNone(daily_draw.user)
+        self.assertIsNone(daily_draw.promocode)
+        self.assertEqual(DailyDraw.objects.count(), 1)
+
+        notify_mock.assert_not_called()
+
+    @patch.object(WinnerService, "_notify_winner")
+    def test_random_winner_integrity_error_closes_day_without_winner(self, notify_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+
+        # Пользователь уже побеждал раньше
+        user = _create_user()
+        old_promo = _create_promocode("AAAAAAAA")
+        old_promo.is_taken = True
+        old_promo.is_drawn = True
+        old_promo.save(update_fields=["is_taken", "is_drawn"])
+        UserPromocode.objects.create(
+            user=user,
+            promocode=old_promo,
+            is_won=True,
+            won_on=yesterday,
+            created_at=timezone.now() - timedelta(days=2),
+        )
+
+        # Кандидат на сегодняшнюю победу — тот же пользователь
+        candidate = _create_promocode("BBBBBBBB")
+        candidate.is_taken = True
+        candidate.save(update_fields=["is_taken"])
+        UserPromocode.objects.create(
+            user=user,
+            promocode=candidate,
+            # Розыгрыш происходит среди промо, использованных день назад
+            created_at=timezone.now() - timedelta(days=1),
+        )
+
+        winner = service.get_random_winner()
+        self.assertIsNone(winner)
+
+        candidate.refresh_from_db()
+        self.assertFalse(candidate.is_drawn)
+
+        daily_draw = DailyDraw.objects.get(date=today)
+        self.assertIsNone(daily_draw.user)
+        self.assertIsNone(daily_draw.promocode)
+        self.assertEqual(DailyDraw.objects.count(), 1)
+
+        notify_mock.assert_not_called()
