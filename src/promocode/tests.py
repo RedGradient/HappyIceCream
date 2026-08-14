@@ -136,7 +136,38 @@ class PromocodeServiceTests(TestCase):
             self.assertIn("code", row)
             self.assertIn("created_at", row)
             self.assertIn("is_won", row)
+            self.assertIn("in_pool", row)
             self.assertFalse(row["is_won"])
+            self.assertTrue(row["in_pool"])
+
+    def test_user_promocodes_list_marks_stale_codes(self, notify_mock):
+        old_promo = _create_promocode("OLDPROMO")
+        old_promo.is_taken = True
+        old_promo.save(update_fields=["is_taken"])
+        old_activation = PromoActivation.objects.create(
+            user=self.user,
+            promocode=old_promo,
+        )
+        PromoActivation.objects.filter(pk=old_activation.pk).update(
+            created_at=timezone.now() - timedelta(days=2),
+        )
+
+        DailyDraw.objects.create(
+            date=timezone.localdate() - timedelta(days=1),
+            place=1,
+            prize=Prize.AIRPODS,
+            user=_create_user(username="winner", email="winner@example.com"),
+            promocode=_create_promocode("DRAWCODE"),
+        )
+
+        _create_promocode("FRESHCOD")
+        self.service.apply("FRESHCOD", self.user.id)
+        result = {
+            row["code"]: row for row in self.service.user_promocodes_list(self.user)
+        }
+
+        self.assertFalse(result["OLDPROMO"]["in_pool"])
+        self.assertTrue(result["FRESHCOD"]["in_pool"])
 
 
 class WinnerServiceTests(TestCase):
@@ -319,6 +350,27 @@ class WinnerServiceTests(TestCase):
         self.assertIsNone(draws[1].prize)
         notify_mock.assert_called_once()
         self.assertIn(notify_mock.call_args.args[3], ("AirPods", "Купон OZON"))
+
+    @patch("promocode.services.send_mail", side_effect=OSError("smtp down"))
+    def test_get_random_winner_succeeds_if_email_fails(self, send_mail_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+
+        user = _create_user(email="winner@example.com")
+        promocode = _create_promocode("ABCDEFGH")
+        promocode.is_taken = True
+        promocode.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(
+            user=user,
+            promocode=promocode,
+            created_at=timezone.now() - timedelta(days=1),
+        )
+
+        winners = service.get_random_winner()
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(winners[0].user_id, user.id)
+        self.assertEqual(DailyDraw.objects.filter(date=today).count(), 2)
+        send_mail_mock.assert_called()
 
     @patch.object(WinnerService, "_notify_winner")
     def test_clear_today_draw_allows_redo(self, notify_mock):

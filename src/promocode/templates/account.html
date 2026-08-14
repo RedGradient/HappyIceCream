@@ -530,6 +530,18 @@
             font-weight: 700;
         }
 
+        .my-promos__table tbody tr.is-stale td {
+            color: var(--muted);
+        }
+
+        .my-promos__table tbody tr.is-stale .my-promos__code {
+            font-weight: 600;
+            opacity: 0.75;
+            text-decoration: line-through;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.15em;
+        }
+
         .my-promos__table tbody tr + tr td {
             border-top: 1px solid rgba(26, 43, 51, 0.08);
         }
@@ -1047,10 +1059,13 @@
                                             </thead>
                                             <tbody>
                                                 {% for item in user_promocodes %}
-                                                    <tr>
+                                                    <tr{% if not item.in_pool and not item.is_won %} class="is-stale"{% endif %}>
                                                         <td>{{ item.created_at|date:"d.m" }}</td>
                                                         <td>
-                                                            <span class="my-promos__code">{{ item.code }}</span>
+                                                            <span
+                                                                class="my-promos__code"
+                                                                {% if not item.in_pool and not item.is_won %}title="Не участвует в текущем розыгрыше"{% endif %}
+                                                            >{{ item.code }}</span>
                                                             {% if item.is_won %}
                                                                 <span class="my-promos__won"> · победа</span>
                                                             {% endif %}
@@ -1377,14 +1392,20 @@
             }
 
             const rows = promocodes.map((item) => {
-                const won = item.is_won
-                    ? '<span class="my-promos__won"> · победа</span>'
-                    : '';
+                let mark = '';
+                let rowClass = '';
+                let codeAttrs = `class="my-promos__code"`;
+                if (item.is_won) {
+                    mark = '<span class="my-promos__won"> · победа</span>';
+                } else if (!item.in_pool) {
+                    rowClass = ' class="is-stale"';
+                    codeAttrs += ' title="Не участвует в текущем розыгрыше"';
+                }
                 return (
-                    '<tr>' +
+                    `<tr${rowClass}>` +
                     `<td>${escapeHtml(formatPromoDate(item.created_at))}</td>` +
                     '<td>' +
-                    `<span class="my-promos__code">${escapeHtml(item.code)}</span>${won}` +
+                    `<span ${codeAttrs}>${escapeHtml(item.code)}</span>${mark}` +
                     '</td>' +
                     '</tr>'
                 );

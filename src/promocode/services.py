@@ -210,6 +210,8 @@ class PromoCodeService:
         return created_total, cancelled
 
     def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
+        pool_from = WinnerService.pool_started_at()
+        eligible = not user.winner
         rows = (
             PromoActivation.objects.filter(user=user)
             .select_related("promocode")
@@ -220,6 +222,9 @@ class PromoCodeService:
                 "code": row.promocode.code,
                 "created_at": row.created_at,
                 "is_won": row.is_won,
+                "in_pool": (
+                    eligible and pool_from is not None and row.created_at >= pool_from
+                ),
             }
             for row in rows
         ]
@@ -504,12 +509,15 @@ class WinnerService:
             )
             return None
 
-    def get_random_winner(self) -> list[DailyDraw]:
+    def get_random_winner(self, *, notify: bool = True) -> list[DailyDraw]:
         """
         Выбирает до WINNERS_PER_DAY победителей за текущий день.
 
         Призы из DAILY_PRIZES раздаются случайно по заполненным местам
         (AirPods и купон OZON).
+
+        Args:
+            notify: отправлять ли email победителям.
 
         Raises:
             WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
@@ -583,21 +591,23 @@ class WinnerService:
         for draw in winners:
             assert draw.user is not None
             assert draw.promocode is not None
-            self._notify_winner(
-                draw.user,
-                draw.promocode,
-                today,
-                draw.get_prize_display(),
-            )
+            if notify:
+                self._notify_winner(
+                    draw.user,
+                    draw.promocode,
+                    today,
+                    draw.get_prize_display(),
+                )
             logger.info(
                 "Winner selected: place=%s prize=%s user_id=%s "
-                "promocode_id=%s code=%s won_on=%s",
+                "promocode_id=%s code=%s won_on=%s notify=%s",
                 draw.place,
                 draw.prize,
                 draw.user_id,
                 draw.promocode_id,
                 draw.promocode.code,
                 today,
+                notify,
             )
         return winners
 
@@ -607,19 +617,29 @@ class WinnerService:
         promocode: Promocode,
         date: date,
         prize_label: str,
-    ):
-        send_mail(
-            subject="Вы победили — Happy Ice Cream",
-            message=(
-                "Поздравляем! Вы победили в ежедневном розыгрыше Happy Ice Cream.\n\n"
-                f"Дата: {date.strftime('%d.%m.%Y')}\n"
-                f"Приз: {prize_label}\n"
-                f"Промокод: {promocode.code}\n\n"
-                "Скоро свяжемся с вами по этому email, чтобы передать приз."
-            ),
-            from_email=None,
-            recipient_list=[user.email],
-        )
+    ) -> None:
+        try:
+            send_mail(
+                subject="Вы победили — Happy Ice Cream",
+                message=(
+                    "Поздравляем! Вы победили в ежедневном розыгрыше Happy Ice Cream.\n\n"
+                    f"Дата: {date.strftime('%d.%m.%Y')}\n"
+                    f"Приз: {prize_label}\n"
+                    f"Промокод: {promocode.code}\n\n"
+                    "Скоро свяжемся с вами по этому email, чтобы передать приз."
+                ),
+                from_email=None,
+                recipient_list=[user.email],
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send winner email: user_id=%s email=%s "
+                "promocode_id=%s prize=%s",
+                user.id,
+                user.email,
+                promocode.id,
+                prize_label,
+            )
 
 
 class AnalyticsService:
