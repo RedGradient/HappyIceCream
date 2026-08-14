@@ -142,7 +142,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "ru"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Moscow"
 
 USE_I18N = True
 
@@ -221,7 +221,6 @@ CELERY_IMPORTS = ("config.tasks",)
 CELERY_BEAT_SCHEDULE = {
     "select-random-winner-daily": {
         "task": "config.tasks.select_random_winner",
-        "schedule": crontab(hour=12, minute=00),
-        # "schedule": timedelta(seconds=10),
+        "schedule": crontab(hour=0, minute=0),
     },
 }
