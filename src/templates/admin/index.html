@@ -282,6 +282,19 @@
             </li>
 
             <li class="promo-actions__row">
+                <span class="promo-actions__label">Пул розыгрыша</span>
+                <div class="promo-actions__controls">
+                    <a class="button" href="{% url 'admin:draw_pool' %}">Открыть</a>
+                    <p class="promo-actions__hint">
+                        Кандидаты: {{ draw_pool.count }}
+                        {% if draw_pool.unique_users %}
+                            ({{ draw_pool.unique_users }} польз.)
+                        {% endif %}
+                    </p>
+                </div>
+            </li>
+
+            <li class="promo-actions__row">
                 <span class="promo-actions__label">Розыгрыш</span>
                 <form
                     id="pick-winner-form"

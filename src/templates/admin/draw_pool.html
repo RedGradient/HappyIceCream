@@ -1,0 +1,177 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<style>
+    .draw-pool-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+        gap: 1rem;
+        margin: 0 0 1.25rem;
+    }
+
+    .draw-pool-card {
+        margin: 0;
+        padding: 1rem 1.1rem;
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #e8e8e8);
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .draw-pool-card__label {
+        margin: 0 0 0.45rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+
+    .draw-pool-card__value {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--body-fg, #333);
+    }
+
+    .draw-pool-hint {
+        margin: 0 0 1rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.9rem;
+        line-height: 1.45;
+        max-width: 48rem;
+    }
+
+    .draw-pool-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #e8e8e8);
+    }
+
+    .draw-pool-table th,
+    .draw-pool-table td {
+        padding: 0.65rem 0.85rem;
+        text-align: left;
+        border-top: 1px solid var(--hairline-color, #e8e8e8);
+        font-size: 0.9rem;
+    }
+
+    .draw-pool-table th {
+        border-top: 0;
+        background: var(--darkened-bg, #f8f8f8);
+        color: var(--body-quiet-color, #666);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .draw-pool-table code {
+        font-weight: 700;
+        letter-spacing: 0.06em;
+    }
+
+    .draw-pool-empty {
+        margin: 0;
+        padding: 1rem;
+        color: var(--body-quiet-color, #666);
+        border: 1px solid var(--hairline-color, #e8e8e8);
+        background: var(--body-bg, #fff);
+    }
+
+    .draw-pool-pagination {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 1rem 0 0;
+        font-size: 0.9rem;
+    }
+
+    .draw-pool-pagination a {
+        font-weight: 600;
+    }
+</style>
+
+<p class="draw-pool-hint">
+    В пул входят активации с момента последнего розыгрыша
+    у пользователей, которые ещё не побеждали.
+    Это те же кандидаты, из которых выбирается победитель.
+</p>
+
+<div class="draw-pool-meta">
+    <div class="draw-pool-card">
+        <p class="draw-pool-card__label">Активаций в пуле</p>
+        <p class="draw-pool-card__value">{{ pool.count }}</p>
+    </div>
+    <div class="draw-pool-card">
+        <p class="draw-pool-card__label">Уникальных пользователей</p>
+        <p class="draw-pool-card__value">{{ pool.unique_users }}</p>
+    </div>
+    <div class="draw-pool-card">
+        <p class="draw-pool-card__label">Начало пула</p>
+        <p class="draw-pool-card__value">
+            {% if activated_from %}
+                {{ activated_from|date:"d.m.Y H:i" }}
+            {% else %}
+                —
+            {% endif %}
+        </p>
+    </div>
+    <div class="draw-pool-card">
+        <p class="draw-pool-card__label">Следующий розыгрыш</p>
+        <p class="draw-pool-card__value">{{ pool.next_draw_at|date:"d.m.Y H:i" }}</p>
+    </div>
+</div>
+
+{% if page_obj.object_list %}
+    <table class="draw-pool-table">
+        <thead>
+            <tr>
+                <th scope="col">Дата активации</th>
+                <th scope="col">Пользователь</th>
+                <th scope="col">Email</th>
+                <th scope="col">Промокод</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in page_obj %}
+                <tr>
+                    <td>{{ row.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'admin:user_auth_user_change' row.user_id %}">
+                            {% if row.user.last_name or row.user.first_name %}
+                                {{ row.user.last_name }} {{ row.user.first_name }}
+                            {% else %}
+                                {{ row.user.username }}
+                            {% endif %}
+                        </a>
+                    </td>
+                    <td>{{ row.user.email }}</td>
+                    <td>
+                        <a href="{% url 'admin:promocode_promocode_change' row.promocode_id %}">
+                            <code>{{ row.promocode.code }}</code>
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <div class="draw-pool-pagination">
+            <span>
+                Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}">← Назад</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">Вперёд →</a>
+            {% endif %}
+        </div>
+    {% endif %}
+{% else %}
+    <p class="draw-pool-empty">Пул пуст — подходящих активаций пока нет.</p>
+{% endif %}
+{% endblock %}

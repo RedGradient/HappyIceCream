@@ -11,6 +11,7 @@ import pandas as pd
 from django.core.files.uploadedfile import UploadedFile
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from auth.models import User
@@ -213,11 +214,7 @@ class CabinetService:
 
     @staticmethod
     def pool_started_at() -> datetime | None:
-        last_draw = DailyDraw.objects.order_by("-created_at").first()
-        if last_draw:
-            return last_draw.created_at
-        first = PromoActivation.objects.order_by("created_at").first()
-        return first.created_at if first else None
+        return WinnerService.pool_started_at()
 
     @staticmethod
     def next_draw_at() -> datetime:
@@ -290,6 +287,47 @@ class CabinetService:
 
 
 class WinnerService:
+    @staticmethod
+    def pool_started_at() -> datetime | None:
+        """Нижняя граница пула следующего розыгрыша (как в get_random_winner)."""
+        last_draw = DailyDraw.objects.order_by("-created_at").first()
+        if last_draw:
+            return last_draw.created_at
+        first = PromoActivation.objects.order_by("created_at").first()
+        return first.created_at if first else None
+
+    @classmethod
+    def current_pool_queryset(cls) -> tuple[QuerySet, datetime | None]:
+        """
+        Активации, участвующие в ближайшем розыгрыше.
+
+        Returns:
+            (queryset, activated_from) — queryset может быть пустым.
+        """
+        activated_from = cls.pool_started_at()
+        if activated_from is None:
+            return PromoActivation.objects.none(), None
+
+        qs = (
+            PromoActivation.objects.filter(
+                user__winner=False,
+                created_at__gte=activated_from,
+            )
+            .select_related("user", "promocode")
+            .order_by("-created_at", "id")
+        )
+        return qs, activated_from
+
+    @classmethod
+    def current_pool_summary(cls) -> dict[str, Any]:
+        qs, activated_from = cls.current_pool_queryset()
+        return {
+            "count": qs.count(),
+            "unique_users": qs.values("user_id").distinct().count(),
+            "activated_from": activated_from,
+            "next_draw_at": CabinetService.next_draw_at(),
+        }
+
     def winners_by_day(self, days: int) -> list[dict[str, Any]]:
         """
         Победители, сгруппированные по датам (новые дни первыми).

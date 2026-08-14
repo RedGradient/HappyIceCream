@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
+from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -17,7 +18,14 @@ from config.tasks import (
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
 from promocode.models import DailyDraw, PromoActivation, Promocode
-from promocode.services import AnalyticsService, ExcelService, WinnerService
+from promocode.services import (
+    AnalyticsService,
+    CabinetService,
+    ExcelService,
+    WinnerService,
+)
+
+DRAW_POOL_PAGE_SIZE = 50
 
 
 @admin.register(Promocode)
@@ -224,6 +232,26 @@ def metrics_view(request):
 
 
 @require_GET
+def draw_pool_view(request):
+    qs, activated_from = WinnerService.current_pool_queryset()
+    paginator = Paginator(qs, DRAW_POOL_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    context = {
+        **admin.site.each_context(request),
+        "title": "Пул следующего розыгрыша",
+        "page_obj": page_obj,
+        "pool": {
+            "count": paginator.count,
+            "unique_users": qs.values("user_id").distinct().count(),
+            "activated_from": activated_from,
+            "next_draw_at": CabinetService.next_draw_at(),
+        },
+        "activated_from": activated_from,
+    }
+    return render(request, "admin/draw_pool.html", context)
+
+
+@require_GET
 def metrics_export_excel_view(request):
     content, filename = AnalyticsService.export_analytics_as_excel()
     response = HttpResponse(
@@ -249,6 +277,7 @@ def _admin_index(request, extra_context=None):
     )
     extra_context["today_draws"] = today_draws
     extra_context["today_draw"] = bool(today_draws)
+    extra_context["draw_pool"] = WinnerService.current_pool_summary()
 
     task_id = request.session.get(SESSION_PROMO_GEN_TASK_ID)
     promo_gen = None
@@ -280,6 +309,11 @@ def _get_urls():
             "metrics/export/",
             admin.site.admin_view(metrics_export_excel_view),
             name="metrics_export_excel",
+        ),
+        path(
+            "draw-pool/",
+            admin.site.admin_view(draw_pool_view),
+            name="draw_pool",
         ),
         path(
             "pick-random-winner/",
