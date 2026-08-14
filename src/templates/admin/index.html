@@ -117,6 +117,67 @@
         font-size: 0.75rem;
     }
 
+    .promo-gen-progress {
+        display: none;
+        flex: 1 1 100%;
+        margin-top: 0.35rem;
+        max-width: 28rem;
+    }
+
+    .promo-gen-progress.is-visible {
+        display: block;
+    }
+
+    .promo-gen-progress__track {
+        height: 0.55rem;
+        border-radius: 999px;
+        background: var(--hairline-color, #e8e8e8);
+        overflow: hidden;
+    }
+
+    .promo-gen-progress__bar {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: var(--primary, #417690);
+        transition: width 280ms ease;
+    }
+
+    .promo-gen-progress__meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: 0.35rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.75rem;
+    }
+
+    .promo-gen-progress__meta-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .promo-gen-message {
+        flex: 1 1 100%;
+        margin: 0.15rem 0 0;
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+
+    .promo-gen-message.is-success {
+        color: var(--message-success-text, #0a5c2c);
+    }
+
+    .promo-gen-message.is-error {
+        color: var(--message-error-text, #ba2121);
+    }
+
+    .promo-gen-message:empty {
+        display: none;
+    }
+
     .pick-winner-dialog {
         border: 1px solid var(--hairline-color, #e8e8e8);
         border-radius: 8px;
@@ -210,9 +271,13 @@
             <li class="promo-actions__row">
                 <label class="promo-actions__label" for="id_count">Сгенерировать</label>
                 <form
+                    id="generate-promos-form"
                     class="promo-actions__controls"
                     method="post"
                     action="{% url 'admin:generate_promocodes' %}"
+                    data-status-url="{% url 'admin:generate_promocodes_status' %}"
+                    {% if promo_gen_task %}data-task-id="{{ promo_gen_task.task_id }}"{% endif %}
+                    {% if promo_gen_task.started_at %}data-started-at="{{ promo_gen_task.started_at }}"{% endif %}
                 >
                     {% csrf_token %}
                     <input
@@ -223,9 +288,52 @@
                         max="5000000"
                         value="1500000"
                         required
+                        {% if promo_gen_task %}disabled{% endif %}
                     >
-                    <button type="submit" class="button">Запустить</button>
+                    <button
+                        type="submit"
+                        class="button"
+                        id="generate-promos-button"
+                        {% if promo_gen_task %}disabled{% endif %}
+                    >
+                        Запустить
+                    </button>
                     <p class="promo-actions__hint">Фоновая задача Celery</p>
+                    <p
+                        id="promo-gen-message"
+                        class="promo-gen-message{% if promo_gen_result.success %} is-success{% elif promo_gen_result %} is-error{% endif %}"
+                        role="status"
+                        aria-live="polite"
+                    >{% if promo_gen_result.success %}Генерация завершена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result %}Генерация завершилась с ошибкой: {{ promo_gen_result.error }}{% endif %}</p>
+                    <div
+                        id="promo-gen-progress"
+                        class="promo-gen-progress{% if promo_gen_task %} is-visible{% endif %}"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <div class="promo-gen-progress__track">
+                            <div
+                                id="promo-gen-progress-bar"
+                                class="promo-gen-progress__bar"
+                                style="width: {% if promo_gen_task %}{{ promo_gen_task.percent }}{% else %}0{% endif %}%;"
+                            ></div>
+                        </div>
+                        <div class="promo-gen-progress__meta">
+                            <span id="promo-gen-progress-label">
+                                {% if promo_gen_task %}
+                                    {{ promo_gen_task.current }} / {{ promo_gen_task.total }}
+                                {% else %}
+                                    Ожидание…
+                                {% endif %}
+                            </span>
+                            <span class="promo-gen-progress__meta-right">
+                                <span id="promo-gen-progress-elapsed">0:00</span>
+                                <span id="promo-gen-progress-percent">
+                                    {% if promo_gen_task %}{{ promo_gen_task.percent }}%{% else %}0%{% endif %}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
                 </form>
             </li>
 
@@ -355,6 +463,225 @@
             dialog.addEventListener("cancel", function () {
                 dialog.close();
             });
+        }
+    })();
+
+    (function () {
+        const form = document.getElementById("generate-promos-form");
+        if (!form) {
+            return;
+        }
+
+        const statusUrl = form.dataset.statusUrl;
+        const progress = document.getElementById("promo-gen-progress");
+        const bar = document.getElementById("promo-gen-progress-bar");
+        const label = document.getElementById("promo-gen-progress-label");
+        const percentEl = document.getElementById("promo-gen-progress-percent");
+        const elapsedEl = document.getElementById("promo-gen-progress-elapsed");
+        const messageEl = document.getElementById("promo-gen-message");
+        const button = document.getElementById("generate-promos-button");
+        const countInput = document.getElementById("id_count");
+        let pollTimer = null;
+        let tickTimer = null;
+        let taskId = form.dataset.taskId || null;
+        let startedAtMs = null;
+        let frozenElapsed = null;
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString("ru-RU");
+        }
+
+        function formatElapsed(totalSeconds) {
+            const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const rest = seconds % 60;
+            const mm = String(minutes).padStart(hours > 0 ? 2 : 1, "0");
+            const ss = String(rest).padStart(2, "0");
+            if (hours > 0) {
+                return hours + ":" + mm + ":" + ss;
+            }
+            return minutes + ":" + ss;
+        }
+
+        function setMessage(level, text) {
+            if (!messageEl) {
+                return;
+            }
+            messageEl.classList.remove("is-success", "is-error");
+            if (level) {
+                messageEl.classList.add("is-" + level);
+            }
+            messageEl.textContent = text || "";
+        }
+
+        function setRunning(isRunning) {
+            if (button) {
+                button.disabled = isRunning;
+            }
+            if (countInput) {
+                countInput.disabled = isRunning;
+            }
+            if (progress) {
+                progress.classList.toggle("is-visible", isRunning);
+            }
+            if (isRunning) {
+                setMessage("", "");
+            }
+        }
+
+        function renderElapsed() {
+            if (!elapsedEl) {
+                return;
+            }
+            if (frozenElapsed !== null) {
+                elapsedEl.textContent = formatElapsed(frozenElapsed);
+                return;
+            }
+            if (startedAtMs === null) {
+                elapsedEl.textContent = "0:00";
+                return;
+            }
+            const seconds = Math.floor((Date.now() - startedAtMs) / 1000);
+            elapsedEl.textContent = formatElapsed(seconds);
+        }
+
+        function render(status) {
+            const percent = status.percent || 0;
+            if (bar) {
+                bar.style.width = percent + "%";
+            }
+            if (percentEl) {
+                percentEl.textContent = percent + "%";
+            }
+            if (label) {
+                if (status.state === "PENDING" || status.state === "STARTED") {
+                    label.textContent = "В очереди…";
+                } else if (status.total) {
+                    label.textContent =
+                        formatNumber(status.current) + " / " + formatNumber(status.total);
+                } else {
+                    label.textContent = "Генерация…";
+                }
+            }
+            if (status.started_at) {
+                const parsed = Date.parse(status.started_at);
+                if (!Number.isNaN(parsed)) {
+                    startedAtMs = parsed;
+                }
+            }
+            if (status.done && status.elapsed_seconds != null) {
+                frozenElapsed = status.elapsed_seconds;
+            }
+            renderElapsed();
+        }
+
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            if (tickTimer) {
+                clearInterval(tickTimer);
+                tickTimer = null;
+            }
+        }
+
+        function finish(status) {
+            stopPolling();
+            taskId = null;
+            form.removeAttribute("data-task-id");
+            setRunning(false);
+            if (progress) {
+                progress.classList.add("is-visible");
+            }
+            if (status.success) {
+                if (label) {
+                    label.textContent =
+                        formatNumber(status.created) +
+                        " / " +
+                        formatNumber(status.requested);
+                }
+                if (bar) {
+                    bar.style.width = "100%";
+                }
+                if (percentEl) {
+                    percentEl.textContent = "100%";
+                }
+                setMessage(
+                    "success",
+                    "Генерация завершена: создано " +
+                        formatNumber(status.created) +
+                        " из " +
+                        formatNumber(status.requested) +
+                        "."
+                );
+            } else if (status.error) {
+                if (label) {
+                    label.textContent = "Ошибка";
+                }
+                setMessage(
+                    "error",
+                    "Генерация завершилась с ошибкой: " + status.error
+                );
+            }
+            render(status);
+        }
+
+        function poll() {
+            if (!taskId || !statusUrl) {
+                return;
+            }
+            const url = statusUrl + "?task_id=" + encodeURIComponent(taskId);
+            fetch(url, {
+                headers: { Accept: "application/json" },
+                credentials: "same-origin",
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("status " + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (status) {
+                    if (status.state === "ABSENT") {
+                        stopPolling();
+                        setRunning(false);
+                        return;
+                    }
+                    render(status);
+                    if (status.done) {
+                        finish(status);
+                    }
+                })
+                .catch(function () {
+                    if (label) {
+                        label.textContent = "Не удалось получить статус";
+                    }
+                });
+        }
+
+        function startPolling(id) {
+            taskId = id;
+            form.dataset.taskId = id;
+            frozenElapsed = null;
+            startedAtMs = null;
+            if (form.dataset.startedAt) {
+                const parsed = Date.parse(form.dataset.startedAt);
+                if (!Number.isNaN(parsed)) {
+                    startedAtMs = parsed;
+                }
+            }
+            setRunning(true);
+            render({ state: "PENDING", percent: 0, current: 0, total: 0 });
+            stopPolling();
+            poll();
+            pollTimer = setInterval(poll, 1500);
+            tickTimer = setInterval(renderElapsed, 1000);
+        }
+
+        if (taskId) {
+            startPolling(taskId);
         }
     })();
 </script>

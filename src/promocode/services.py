@@ -3,6 +3,7 @@ import logging
 import random
 import secrets
 import string
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -29,7 +30,7 @@ DAILY_PRIZES = (Prize.AIRPODS, Prize.OZON_COUPON)
 PROMO_CODE_ALPHABET_LETTERS = string.ascii_uppercase
 PROMO_CODE_ALPHABET_NUMBERS = string.digits
 PROMO_CODE_LENGTH = 8
-PROMO_CODE_BATCH_SIZE = 50_000
+PROMO_CODE_BATCH_SIZE = 25_000
 
 GENERATE_PROMO_ATTEMPTS = 10
 
@@ -123,9 +124,13 @@ class PromoCodeService:
         self,
         count: int,
         batch_size: int = PROMO_CODE_BATCH_SIZE,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> int:
         """
         Создаёт случайные буквенные и числовые промокоды батчами через bulk_create.
+
+        Args:
+            progress_callback: вызывается после каждого батча с (создано, цель).
 
         Returns:
             Число реально вставленных строк (с учётом ignore_conflicts).
@@ -135,6 +140,8 @@ class PromoCodeService:
 
         created_total = 0
         now = timezone.now()
+        if progress_callback:
+            progress_callback(0, count)
 
         while created_total < count:
             batch_count = min(batch_size, count - created_total)
@@ -159,6 +166,9 @@ class PromoCodeService:
                 created_total,
                 count,
             )
+            if progress_callback:
+                progress_callback(created_total, count)
+
             if inserted == 0:
                 logger.warning(
                     "Promo codes batch inserted nothing, stopping early: "

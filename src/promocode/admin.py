@@ -1,13 +1,18 @@
 from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 
-from config.tasks import generate_promocodes
+from config.tasks import (
+    SESSION_PROMO_GEN_STARTED_AT,
+    SESSION_PROMO_GEN_TASK_ID,
+    generate_promocodes,
+    promo_gen_task_status,
+)
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
 from promocode.models import DailyDraw, PromoActivation, Promocode
@@ -110,13 +115,54 @@ def generate_promocodes_view(request):
         )
         return redirect("admin:index")
 
+    existing_id = request.session.get(SESSION_PROMO_GEN_TASK_ID)
+    if existing_id:
+        status = promo_gen_task_status(existing_id)
+        if not status["done"]:
+            messages.warning(
+                request,
+                "Генерация уже выполняется — дождитесь завершения.",
+            )
+            return redirect("admin:index")
+
     count = form.cleaned_data["count"]
-    generate_promocodes.delay(count)
-    messages.success(
-        request,
-        f"Запущена генерация {count:,} промокодов (задача в Celery).",
-    )
+    async_result = generate_promocodes.delay(count)
+    request.session[SESSION_PROMO_GEN_TASK_ID] = async_result.id
+    request.session[SESSION_PROMO_GEN_STARTED_AT] = timezone.now().isoformat()
     return redirect("admin:index")
+
+
+@require_GET
+def generate_promocodes_status_view(request):
+    task_id = request.GET.get("task_id") or request.session.get(
+        SESSION_PROMO_GEN_TASK_ID
+    )
+    if not task_id:
+        return JsonResponse(
+            {
+                "task_id": None,
+                "state": "ABSENT",
+                "done": True,
+                "success": False,
+                "percent": 0,
+                "current": 0,
+                "total": 0,
+                "error": None,
+                "created": None,
+                "requested": None,
+                "started_at": None,
+                "elapsed_seconds": None,
+            }
+        )
+
+    status = promo_gen_task_status(
+        task_id,
+        started_at=request.session.get(SESSION_PROMO_GEN_STARTED_AT),
+    )
+    if status["done"]:
+        request.session.pop(SESSION_PROMO_GEN_TASK_ID, None)
+        request.session.pop(SESSION_PROMO_GEN_STARTED_AT, None)
+    return JsonResponse(status)
 
 
 @require_POST
@@ -173,6 +219,23 @@ def _admin_index(request, extra_context=None):
     )
     extra_context["today_draws"] = today_draws
     extra_context["today_draw"] = bool(today_draws)
+
+    task_id = request.session.get(SESSION_PROMO_GEN_TASK_ID)
+    promo_gen = None
+    promo_gen_result = None
+    if task_id:
+        promo_gen = promo_gen_task_status(
+            task_id,
+            started_at=request.session.get(SESSION_PROMO_GEN_STARTED_AT),
+        )
+        if promo_gen["done"]:
+            request.session.pop(SESSION_PROMO_GEN_TASK_ID, None)
+            request.session.pop(SESSION_PROMO_GEN_STARTED_AT, None)
+            promo_gen_result = promo_gen
+            promo_gen = None
+    extra_context["promo_gen_task"] = promo_gen
+    extra_context["promo_gen_result"] = promo_gen_result
+
     return _original_index(request, extra_context)
 
 
@@ -197,6 +260,11 @@ def _get_urls():
             "generate-promocodes/",
             admin.site.admin_view(generate_promocodes_view),
             name="generate_promocodes",
+        ),
+        path(
+            "generate-promocodes/status/",
+            admin.site.admin_view(generate_promocodes_status_view),
+            name="generate_promocodes_status",
         ),
         path(
             "load-from-excel/",
