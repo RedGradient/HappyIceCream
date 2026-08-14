@@ -60,6 +60,10 @@ def account(request):
 
     user_promocodes = PromoCodeService().user_promocodes_list(request.user)
     cabinet = CabinetService().summary(request.user)
+    cooldown_until = _cooldown_until(request)
+    if cooldown_until is not None and cooldown_until <= timezone.now():
+        _clear_promo_guards(request)
+        cooldown_until = None
 
     return render(
         request,
@@ -67,6 +71,9 @@ def account(request):
         {
             "user_promocodes": user_promocodes,
             "cabinet": cabinet,
+            "promo_cooldown_until": (
+                cooldown_until.isoformat() if cooldown_until else None
+            ),
         },
     )
 
@@ -91,6 +98,17 @@ def _cooldown_until(request) -> datetime | None:
     return value
 
 
+def _cooldown_payload(cooldown_until: datetime) -> dict:
+    remaining = cooldown_until - timezone.now()
+    minutes, seconds = divmod(max(0, int(remaining.total_seconds())), 60)
+    return {
+        "detail": (
+            f"Слишком много попыток. Повторите через {minutes} мин {seconds} сек"
+        ),
+        "cooldown_until": cooldown_until.isoformat(),
+    }
+
+
 def _cooldown_response(request):
     cooldown_until = _cooldown_until(request)
     if cooldown_until is None:
@@ -98,14 +116,8 @@ def _cooldown_response(request):
 
     now = timezone.now()
     if cooldown_until > now:
-        remaining = cooldown_until - now
-        minutes, seconds = divmod(int(remaining.total_seconds()), 60)
         return Response(
-            {
-                "detail": (
-                    f"Слишком много попыток. Повторите через {minutes} мин {seconds} сек"
-                )
-            },
+            _cooldown_payload(cooldown_until),
             status=status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
@@ -123,7 +135,7 @@ def _recent_failed_attempts(request, *, now: datetime) -> list[datetime]:
     return recent
 
 
-def _register_failed_attempt(request):
+def _register_failed_attempt(request) -> datetime | None:
     now = timezone.now()
     recent = _recent_failed_attempts(request, now=now)
     recent.append(now)
@@ -133,6 +145,8 @@ def _register_failed_attempt(request):
         cooldown_until = now + timedelta(minutes=COOLDOWN_MINUTES)
         request.session[SESSION_COOLDOWN_UNTIL] = cooldown_until.isoformat()
         request.session[SESSION_FAILED_ATTEMPTS] = []
+        return cooldown_until
+    return None
 
 
 def _clear_promo_guards(request):
@@ -189,22 +203,22 @@ class PromocodeView(APIView):
                 code=code,
                 reason=PromoAttemptReason.NOT_FOUND,
             )
-            _register_failed_attempt(request)
-            return Response(
-                {"detail": "Неверный промокод"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            cooldown_until = _register_failed_attempt(request)
+            payload: dict = {"detail": "Неверный промокод"}
+            if cooldown_until is not None:
+                payload["cooldown_until"] = cooldown_until.isoformat()
+            return Response(payload, status=status.HTTP_404_NOT_FOUND)
         except PromocodeAlreadyUsed:
             _log_failed_promo_attempt(
                 request,
                 code=code,
                 reason=PromoAttemptReason.ALREADY_USED,
             )
-            _register_failed_attempt(request)
-            return Response(
-                {"detail": "Неверный промокод"},
-                status=status.HTTP_409_CONFLICT,
-            )
+            cooldown_until = _register_failed_attempt(request)
+            payload = {"detail": "Неверный промокод"}
+            if cooldown_until is not None:
+                payload["cooldown_until"] = cooldown_until.isoformat()
+            return Response(payload, status=status.HTTP_409_CONFLICT)
         except UserProfileIncomplete:
             return Response(
                 {

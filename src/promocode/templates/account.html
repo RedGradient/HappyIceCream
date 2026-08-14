@@ -1087,7 +1087,11 @@
             }
             button.classList.toggle('is-loading', Boolean(loading));
             button.setAttribute('aria-busy', loading ? 'true' : 'false');
-            button.disabled = Boolean(loading);
+            if (loading) {
+                button.disabled = true;
+            } else if (!promoCooldownActive) {
+                button.disabled = false;
+            }
         }
 
         function codesWord(count) {
@@ -1209,11 +1213,70 @@
         const form = document.getElementById('promo-form');
         const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
         const messageEl = document.getElementById('promo-message');
+        const submitButton = document.getElementById('promo-submit') || form.querySelector('button[type="submit"]');
         const codePattern = /^([A-Z]{8}|[0-9]{8})$/;
+        const initialCooldownUntil = {% if promo_cooldown_until %}"{{ promo_cooldown_until|escapejs }}"{% else %}null{% endif %};
+        let promoCooldownActive = false;
+        let promoCooldownTimer = null;
+        let promoCooldownUntilMs = null;
 
         function setMessage(text, { success = false } = {}) {
             messageEl.textContent = text || '';
             messageEl.classList.toggle('is-success', Boolean(success && text));
+        }
+
+        function formatCooldownRemaining(ms) {
+            const totalSec = Math.max(0, Math.ceil(ms / 1000));
+            const minutes = Math.floor(totalSec / 60);
+            const seconds = totalSec % 60;
+            return `${minutes} мин ${String(seconds).padStart(2, '0')} сек`;
+        }
+
+        function setPromoCooldownLocked(locked) {
+            promoCooldownActive = Boolean(locked);
+            cells.forEach((cell) => {
+                cell.disabled = Boolean(locked);
+            });
+            if (submitButton && !submitButton.classList.contains('is-loading')) {
+                submitButton.disabled = Boolean(locked);
+            }
+        }
+
+        function stopPromoCooldown({ clearMessage = true } = {}) {
+            if (promoCooldownTimer) {
+                clearInterval(promoCooldownTimer);
+                promoCooldownTimer = null;
+            }
+            promoCooldownUntilMs = null;
+            setPromoCooldownLocked(false);
+            if (clearMessage) {
+                setMessage('');
+            }
+        }
+
+        function startPromoCooldown(untilIso) {
+            const untilMs = Date.parse(untilIso);
+            if (Number.isNaN(untilMs) || untilMs <= Date.now()) {
+                stopPromoCooldown();
+                return;
+            }
+            promoCooldownUntilMs = untilMs;
+            if (promoCooldownTimer) {
+                clearInterval(promoCooldownTimer);
+            }
+            const tick = () => {
+                const remaining = promoCooldownUntilMs - Date.now();
+                if (remaining <= 0) {
+                    stopPromoCooldown();
+                    return;
+                }
+                setPromoCooldownLocked(true);
+                setMessage(
+                    `Слишком много попыток. Повторите через ${formatCooldownRemaining(remaining)}`
+                );
+            };
+            tick();
+            promoCooldownTimer = setInterval(tick, 1000);
         }
 
         function getErrorMessage(payload) {
@@ -1345,7 +1408,7 @@
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (cells.some((cell) => cell.disabled)) {
+            if (promoCooldownActive || cells.some((cell) => cell.disabled)) {
                 return;
             }
 
@@ -1356,7 +1419,6 @@
                 return;
             }
 
-            const submitButton = document.getElementById('promo-submit') || form.querySelector('button[type="submit"]');
             setMessage('');
             setButtonLoading(submitButton, true);
 
@@ -1374,7 +1436,11 @@
                 const payload = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                    setMessage(getErrorMessage(payload));
+                    if (payload.cooldown_until) {
+                        startPromoCooldown(payload.cooldown_until);
+                    } else {
+                        setMessage(getErrorMessage(payload));
+                    }
                     return;
                 }
 
@@ -1398,6 +1464,9 @@
             }
         });
 
+        if (initialCooldownUntil) {
+            startPromoCooldown(initialCooldownUntil);
+        }
         const notifyCheckbox = document.getElementById('notify-on-promocode');
         const notifyMessageEl = document.getElementById('notify-message');
         if (notifyCheckbox && notifyMessageEl) {

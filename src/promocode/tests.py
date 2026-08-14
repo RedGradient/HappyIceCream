@@ -526,12 +526,16 @@ class PromoCooldownTests(TestCase):
             )
             self.assertIn(response.status_code, (404, 409, 400))
 
+        self.assertIn("cooldown_until", response.json())
+
         locked = self.client.post(
             "/promocode",
             {"code": "WRONGCOD"},
             format="json",
         )
         self.assertEqual(locked.status_code, 429)
+        self.assertIn("cooldown_until", locked.json())
+        self.assertIn("Повторите через", locked.json()["detail"])
 
     def test_no_cooldown_if_failures_are_spread_out(self):
         from promocode import views as promo_views
