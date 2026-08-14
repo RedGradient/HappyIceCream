@@ -19,8 +19,9 @@ from promocode.serializers import PromoCodeSerializer
 from promocode.services import CabinetService, PromoCodeService, WinnerService
 
 MAX_PROMO_ATTEMPTS = 3
+ATTEMPT_WINDOW_SECONDS = 60
 COOLDOWN_MINUTES = 5
-SESSION_FAILED_ATTEMPTS = "failed_promo_attempts"
+SESSION_FAILED_ATTEMPTS = "failed_promo_attempt_times"
 SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
 
 
@@ -47,15 +48,24 @@ def account(request):
     )
 
 
+def _parse_session_datetime(raw: str) -> datetime | None:
+    try:
+        value = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    if timezone.is_naive(value):
+        return timezone.make_aware(value, timezone.get_current_timezone())
+    return value
+
+
 def _cooldown_until(request) -> datetime | None:
     raw = request.session.get(SESSION_COOLDOWN_UNTIL)
     if not raw:
         return None
-    try:
-        return datetime.fromisoformat(raw)
-    except (TypeError, ValueError):
+    value = _parse_session_datetime(raw)
+    if value is None:
         request.session.pop(SESSION_COOLDOWN_UNTIL, None)
-        return None
+    return value
 
 
 def _cooldown_response(request):
@@ -80,14 +90,26 @@ def _cooldown_response(request):
     return None
 
 
-def _register_failed_attempt(request):
-    attempts = request.session.get(SESSION_FAILED_ATTEMPTS, 0) + 1
-    request.session[SESSION_FAILED_ATTEMPTS] = attempts
+def _recent_failed_attempts(request, *, now: datetime) -> list[datetime]:
+    window_start = now - timedelta(seconds=ATTEMPT_WINDOW_SECONDS)
+    recent: list[datetime] = []
+    for raw in request.session.get(SESSION_FAILED_ATTEMPTS, []):
+        value = _parse_session_datetime(raw) if isinstance(raw, str) else None
+        if value is not None and value >= window_start:
+            recent.append(value)
+    return recent
 
-    if attempts >= MAX_PROMO_ATTEMPTS:
-        cooldown_until = timezone.now() + timedelta(minutes=COOLDOWN_MINUTES)
+
+def _register_failed_attempt(request):
+    now = timezone.now()
+    recent = _recent_failed_attempts(request, now=now)
+    recent.append(now)
+    request.session[SESSION_FAILED_ATTEMPTS] = [item.isoformat() for item in recent]
+
+    if len(recent) >= MAX_PROMO_ATTEMPTS:
+        cooldown_until = now + timedelta(minutes=COOLDOWN_MINUTES)
         request.session[SESSION_COOLDOWN_UNTIL] = cooldown_until.isoformat()
-        request.session[SESSION_FAILED_ATTEMPTS] = 0
+        request.session[SESSION_FAILED_ATTEMPTS] = []
 
 
 def _clear_promo_guards(request):

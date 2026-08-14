@@ -402,3 +402,51 @@ class CabinetServiceTests(TestCase):
         self.assertIn("participation", response.data)
         self.assertIn("checklist", response.data)
         self.assertNotIn("wins", response.data)
+
+
+class PromoCooldownTests(TestCase):
+    def setUp(self):
+        self.user = _create_user(
+            first_name="John",
+            last_name="Doe",
+            email_confirmed=True,
+        )
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_cooldown_after_three_failures_within_one_minute(self):
+        for _ in range(3):
+            response = self.client.post(
+                "/promocode",
+                {"code": "WRONGCOD"},
+                format="json",
+            )
+            self.assertIn(response.status_code, (404, 409, 400))
+
+        locked = self.client.post(
+            "/promocode",
+            {"code": "WRONGCOD"},
+            format="json",
+        )
+        self.assertEqual(locked.status_code, 429)
+
+    def test_no_cooldown_if_failures_are_spread_out(self):
+        from promocode import views as promo_views
+
+        session = self.client.session
+        old = timezone.now() - timedelta(seconds=61)
+        session[promo_views.SESSION_FAILED_ATTEMPTS] = [
+            old.isoformat(),
+            old.isoformat(),
+        ]
+        session.save()
+
+        response = self.client.post(
+            "/promocode",
+            {"code": "WRONGCOD"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn(promo_views.SESSION_COOLDOWN_UNTIL, self.client.session)
