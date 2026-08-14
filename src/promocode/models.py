@@ -77,10 +77,11 @@ class PromoActivation(models.Model):
 
 
 class DailyDraw(models.Model):
-    """Результат ежедневного розыгрыша (в т.ч. день без победителя)."""
+    """Одно место ежедневного розыгрыша (до WINNERS_PER_DAY на дату)."""
 
     id = models.BigAutoField(primary_key=True)
-    date = models.DateField(unique=True)
+    date = models.DateField()
+    place = models.PositiveSmallIntegerField()
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -99,9 +100,18 @@ class DailyDraw(models.Model):
 
     class Meta:
         db_table = "daily_draws"
-        ordering: ClassVar[list] = ["-date"]
+        ordering: ClassVar[list] = ["-date", "place"]
+        constraints: ClassVar[list] = [
+            models.UniqueConstraint(
+                fields=["date", "place"],
+                name="unique_daily_draw_date_place",
+            ),
+        ]
 
     def __str__(self) -> str:
         if self.user_id and self.promocode_id:
-            return f"{self.date}: user={self.user_id} promo={self.promocode_id}"
-        return f"{self.date}: no winner"
+            return (
+                f"{self.date} #{self.place}: "
+                f"user={self.user_id} promo={self.promocode_id}"
+            )
+        return f"{self.date} #{self.place}: no winner"

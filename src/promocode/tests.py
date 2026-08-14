@@ -129,58 +129,51 @@ class PromocodeServiceTests(TestCase):
 class WinnerServiceTests(TestCase):
     @patch.object(WinnerService, "_notify_winner")
     def test_get_random_winner_ok(self, notify_mock):
-        """
-        None если нет self.get_random_unused_promocode
-        WinnerAlreadySelectedToday
-        Побочные эффекты UserPromocode, promocode, DailyDraw
-        Замокать self._notify_winner
-
-        UserPromocode.DoesNotExist -> None
-
-        IntegrityError ->
-        """
-
         service = WinnerService()
         today = timezone.localdate()
 
-        # Создание юзера и промокода
-        user = _create_user()
-        promocode = _create_promocode("ABCDEFGH")
-        promocode.is_taken = True
-        promocode.save(update_fields=["is_taken"])
-        # Создаем связь UserPromocode
-        user_promocode = PromoActivation.objects.create(
-            user=user,
-            promocode=promocode,
-            # Розыгрыш происходит среди промо, использованных день назад
+        user1 = _create_user(username="alice", email="alice@example.com")
+        user2 = _create_user(username="bob", email="bob@example.com")
+        promo1 = _create_promocode("ABCDEFGH")
+        promo1.is_taken = True
+        promo1.save(update_fields=["is_taken"])
+        promo2 = _create_promocode("HGFEEDCB")
+        promo2.is_taken = True
+        promo2.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(
+            user=user1,
+            promocode=promo1,
+            created_at=timezone.now() - timedelta(days=1),
+        )
+        PromoActivation.objects.create(
+            user=user2,
+            promocode=promo2,
             created_at=timezone.now() - timedelta(days=1),
         )
 
-        winner = service.get_random_winner()
-        # Это чтобы утихомирить статический анализатор
-        assert winner is not None
+        winners = service.get_random_winner()
 
-        self.assertIsNotNone(winner)
-        self.assertEqual(user_promocode.user, winner.user)
-        self.assertEqual(user_promocode.promocode.code, winner.promocode.code)
+        self.assertEqual(len(winners), 2)
+        self.assertEqual(
+            {w.user_id for w in winners},
+            {user1.id, user2.id},
+        )
 
-        user_promocode.refresh_from_db()
-        self.assertTrue(user_promocode.is_won)
-        self.assertEqual(user_promocode.won_on, today)
+        draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
+        self.assertEqual(len(draws), 2)
+        self.assertEqual([d.place for d in draws], [1, 2])
+        self.assertTrue(all(d.user_id for d in draws))
 
-        promocode.refresh_from_db()
-        self.assertTrue(promocode.is_taken)
-
-        daily_draw = DailyDraw.objects.get(date=today)
-        self.assertEqual(daily_draw.user_id, user.id)
-        self.assertEqual(daily_draw.promocode_id, promocode.id)
-
-        notify_mock.assert_called_once_with(user, promocode, today)
+        notify_mock.assert_called()
+        self.assertEqual(notify_mock.call_count, 2)
 
     def test_random_winner_winner_already_selected_today(self):
-        # Не обязательно, чтобы user и promocode существовали,
-        # главное - факт проведения розыгрыша
-        DailyDraw.objects.create(user=None, promocode=None, date=timezone.localdate())
+        DailyDraw.objects.create(
+            user=None,
+            promocode=None,
+            date=timezone.localdate(),
+            place=1,
+        )
 
         with self.assertRaises(WinnerAlreadySelectedToday):
             WinnerService().get_random_winner()
@@ -193,23 +186,21 @@ class WinnerServiceTests(TestCase):
             user=None,
             promocode=None,
             date=today - timedelta(days=1),
+            place=1,
         )
 
-        # Случайный промокод должен быть None
-        service._get_random_promocode = MagicMock()
-        service._get_random_promocode.return_value = None
+        service._get_random_promocode = MagicMock(return_value=None)
 
-        # Тогда результат будет None
-        winner = service.get_random_winner()
-        self.assertIsNone(winner)
+        winners = service.get_random_winner()
+        self.assertEqual(winners, [])
 
-        daily_draw = DailyDraw.objects.get(date=today)
-        self.assertEqual(daily_draw.date, today)
-        self.assertIsNone(daily_draw.user)
-        self.assertIsNone(daily_draw.promocode)
-        self.assertEqual(DailyDraw.objects.count(), 2)
+        draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
+        self.assertEqual(len(draws), 2)
+        self.assertTrue(all(d.user_id is None for d in draws))
+        self.assertEqual(DailyDraw.objects.count(), 3)
 
-        service._get_random_promocode.assert_called_once_with(
+        self.assertEqual(service._get_random_promocode.call_count, 2)
+        service._get_random_promocode.assert_called_with(
             activated_from=yesterday_draw.created_at,
         )
         notify_mock.assert_not_called()
@@ -222,6 +213,7 @@ class WinnerServiceTests(TestCase):
             user=None,
             promocode=None,
             date=today - timedelta(days=1),
+            place=1,
         )
 
         missing = MagicMock()
@@ -230,13 +222,13 @@ class WinnerServiceTests(TestCase):
         missing.promocode_id = 1
         service._get_random_promocode = MagicMock(return_value=missing)
 
-        winner = service.get_random_winner()
-        self.assertIsNone(winner)
+        winners = service.get_random_winner()
+        self.assertEqual(winners, [])
 
-        daily_draw = DailyDraw.objects.get(date=today)
-        self.assertIsNone(daily_draw.user)
-        self.assertIsNone(daily_draw.promocode)
-        self.assertEqual(DailyDraw.objects.count(), 2)
+        draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
+        self.assertEqual(len(draws), 2)
+        self.assertTrue(all(d.user_id is None for d in draws))
+        self.assertEqual(DailyDraw.objects.count(), 3)
 
         notify_mock.assert_not_called()
 
@@ -246,7 +238,6 @@ class WinnerServiceTests(TestCase):
         today = timezone.localdate()
         yesterday = today - timedelta(days=1)
 
-        # Пользователь уже побеждал раньше
         user = _create_user()
         user.winner = True
         user.save(update_fields=["winner"])
@@ -261,26 +252,49 @@ class WinnerServiceTests(TestCase):
             created_at=timezone.now() - timedelta(days=2),
         )
 
-        # Кандидат на сегодняшнюю победу — тот же пользователь
         candidate = _create_promocode("BBBBBBBB")
         candidate.is_taken = True
         candidate.save(update_fields=["is_taken"])
         PromoActivation.objects.create(
             user=user,
             promocode=candidate,
-            # Розыгрыш происходит среди промо, использованных день назад
             created_at=timezone.now() - timedelta(days=1),
         )
 
-        winner = service.get_random_winner()
-        self.assertIsNone(winner)
+        winners = service.get_random_winner()
+        self.assertEqual(winners, [])
 
-        daily_draw = DailyDraw.objects.get(date=today)
-        self.assertIsNone(daily_draw.user)
-        self.assertIsNone(daily_draw.promocode)
-        self.assertEqual(DailyDraw.objects.count(), 1)
+        draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
+        self.assertEqual(len(draws), 2)
+        self.assertTrue(all(d.user_id is None for d in draws))
+        self.assertEqual(DailyDraw.objects.count(), 2)
 
         notify_mock.assert_not_called()
+
+    @patch.object(WinnerService, "_notify_winner")
+    def test_get_random_winner_one_candidate_fills_only_one_place(self, notify_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+
+        user = _create_user()
+        promocode = _create_promocode("ABCDEFGH")
+        promocode.is_taken = True
+        promocode.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(
+            user=user,
+            promocode=promocode,
+            created_at=timezone.now() - timedelta(days=1),
+        )
+
+        winners = service.get_random_winner()
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(winners[0].user_id, user.id)
+
+        draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
+        self.assertEqual(len(draws), 2)
+        self.assertEqual(draws[0].user_id, user.id)
+        self.assertIsNone(draws[1].user_id)
+        notify_mock.assert_called_once()
 
     @patch.object(WinnerService, "_notify_winner")
     def test_clear_today_draw_allows_redo(self, notify_mock):
@@ -297,9 +311,9 @@ class WinnerServiceTests(TestCase):
             created_at=timezone.now() - timedelta(days=1),
         )
 
-        winner = service.get_random_winner()
-        self.assertIsNotNone(winner)
-        self.assertTrue(DailyDraw.objects.filter(date=today).exists())
+        winners = service.get_random_winner()
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(DailyDraw.objects.filter(date=today).count(), 2)
 
         cleared = WinnerService.clear_today_draw()
         self.assertTrue(cleared)
@@ -312,5 +326,5 @@ class WinnerServiceTests(TestCase):
         self.assertFalse(user.winner)
 
         redo = service.get_random_winner()
-        self.assertIsNotNone(redo)
-        self.assertTrue(DailyDraw.objects.filter(date=today).exists())
+        self.assertEqual(len(redo), 1)
+        self.assertEqual(DailyDraw.objects.filter(date=today).count(), 2)

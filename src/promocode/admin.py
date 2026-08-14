@@ -34,11 +34,52 @@ class UserPromocodeAdmin(ModelAdmin):
 
 @admin.register(DailyDraw)
 class DailyDrawAdmin(ModelAdmin):
-    list_display = ("id", "date", "user", "promocode", "created_at")
-    list_filter = ("date",)
-    ordering = ("-date",)
+    list_display = ("id", "date", "place", "user", "promocode", "created_at")
+    list_filter = ("date", "place")
+    ordering = ("-date", "place")
     readonly_fields = ("created_at",)
     raw_id_fields = ("user", "promocode")
+
+
+def _winner_success_message(activation: PromoActivation):
+    user = (
+        User.objects.filter(pk=activation.user_id).first()
+        if activation.user_id
+        else None
+    )
+    promocode = activation.promocode
+    if user:
+        fio = (
+            " ".join(
+                part
+                for part in (user.last_name, user.first_name, user.middle_name)
+                if part
+            )
+            or user.username
+        )
+        user_url = reverse("admin:user_auth_user_change", args=[user.pk])
+        promo_url = reverse(
+            "admin:promocode_promocode_change",
+            args=[promocode.pk],
+        )
+        return format_html(
+            '<a href="{}">{}</a>, email: {}, промокод: <a href="{}">«{}»</a>',
+            user_url,
+            fio,
+            user.email,
+            promo_url,
+            promocode.code,
+        )
+    promo_url = reverse(
+        "admin:promocode_promocode_change",
+        args=[promocode.pk],
+    )
+    return format_html(
+        'user_id={}, промокод: <a href="{}">«{}»</a>',
+        activation.user_id,
+        promo_url,
+        promocode.code,
+    )
 
 
 @require_POST
@@ -48,58 +89,17 @@ def pick_random_winner_view(request):
         if force:
             WinnerService.clear_today_draw()
 
-        winner = WinnerService().get_random_winner()
-        if winner is None:
-            messages.info(request, "Розыгрыш закрыт: сегодня без победителя.")
+        winners = WinnerService().get_random_winner()
+        if not winners:
+            messages.info(request, "Розыгрыш закрыт: сегодня без победителей.")
         else:
-            user = (
-                User.objects.filter(pk=winner.user_id).first()
-                if winner.user_id
-                else None
+            joined = _winner_success_message(winners[0])
+            for winner in winners[1:]:
+                joined = format_html("{}; {}", joined, _winner_success_message(winner))
+            messages.success(
+                request,
+                format_html("Победители выбраны: {}.", joined),
             )
-            promocode = winner.promocode
-            if user:
-                fio = (
-                    " ".join(
-                        part
-                        for part in (user.last_name, user.first_name, user.middle_name)
-                        if part
-                    )
-                    or user.username
-                )
-                user_url = reverse("admin:user_auth_user_change", args=[user.pk])
-                promo_url = reverse(
-                    "admin:promocode_promocode_change",
-                    args=[promocode.pk],
-                )
-                messages.success(
-                    request,
-                    format_html(
-                        "Победитель выбран: "
-                        '<a href="{}">{}</a>, email: {}, '
-                        'промокод: <a href="{}">«{}»</a>.',
-                        user_url,
-                        fio,
-                        user.email,
-                        promo_url,
-                        promocode.code,
-                    ),
-                )
-            else:
-                promo_url = reverse(
-                    "admin:promocode_promocode_change",
-                    args=[promocode.pk],
-                )
-                messages.success(
-                    request,
-                    format_html(
-                        "Победитель выбран: user_id={}, "
-                        'промокод: <a href="{}">«{}»</a>.',
-                        winner.user_id,
-                        promo_url,
-                        promocode.code,
-                    ),
-                )
     except WinnerAlreadySelectedToday:
         messages.warning(request, "Розыгрыш сегодня уже проведён.")
     except Exception as exc:
@@ -174,11 +174,13 @@ _original_index = admin.site.index
 
 def _admin_index(request, extra_context=None):
     extra_context = extra_context or {}
-    extra_context["today_draw"] = (
+    today_draws = list(
         DailyDraw.objects.filter(date=timezone.localdate())
         .select_related("user", "promocode")
-        .first()
+        .order_by("place")
     )
+    extra_context["today_draws"] = today_draws
+    extra_context["today_draw"] = bool(today_draws)
     return _original_index(request, extra_context)
 
 

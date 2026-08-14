@@ -13,14 +13,13 @@ DEFAULT_PROMO_SEED_COUNT = 1_500_000
 @shared_task(name="select_random_winner")
 def select_random_winner():
     try:
-        winner = WinnerService().get_random_winner()
-        if winner is None:
-            logger.info("Celery select_random_winner finished: no winner today")
+        winners = WinnerService().get_random_winner()
+        if not winners:
+            logger.info("Celery select_random_winner finished: no winners today")
             return
         logger.info(
-            "Celery select_random_winner finished: user_id=%s promocode_id=%s",
-            winner.user_id,
-            winner.promocode_id,
+            "Celery select_random_winner finished: winners=%s",
+            [{"user_id": w.user_id, "promocode_id": w.promocode_id} for w in winners],
         )
     except WinnerAlreadySelectedToday:
         logger.info(

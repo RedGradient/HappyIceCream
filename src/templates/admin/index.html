@@ -259,28 +259,30 @@
         <h3 id="pick-winner-dialog-title" class="pick-winner-dialog__title">
             Розыгрыш за сегодня уже проведён
         </h3>
-        {% if today_draw.user and today_draw.promocode %}
-            {% with u=today_draw.user %}
-            <p>
-                Победитель:
-                <a href="{% url 'admin:user_auth_user_change' u.pk %}">
-                    {% if u.last_name or u.first_name or u.middle_name %}
-                        {{ u.last_name }} {{ u.first_name }} {{ u.middle_name }}
-                    {% else %}
-                        {{ u.username }}
-                    {% endif %}
-                </a>,
-                email: {{ u.email }},
-                промокод:
-                <a href="{% url 'admin:promocode_promocode_change' today_draw.promocode.pk %}">
-                    «{{ today_draw.promocode.code }}»
-                </a>.
-            </p>
-            <p>Этому пользователю уже мог быть отправлен email о победе.</p>
-            {% endwith %}
-        {% else %}
-            <p>Результат: без победителя.</p>
-        {% endif %}
+        {% for draw in today_draws %}
+            {% if draw.user and draw.promocode %}
+                {% with u=draw.user %}
+                <p>
+                    Победитель {{ draw.place }}:
+                    <a href="{% url 'admin:user_auth_user_change' u.pk %}">
+                        {% if u.last_name or u.first_name or u.middle_name %}
+                            {{ u.last_name }} {{ u.first_name }} {{ u.middle_name }}
+                        {% else %}
+                            {{ u.username }}
+                        {% endif %}
+                    </a>,
+                    email: {{ u.email }},
+                    промокод:
+                    <a href="{% url 'admin:promocode_promocode_change' draw.promocode.pk %}">
+                        «{{ draw.promocode.code }}»
+                    </a>.
+                </p>
+                {% endwith %}
+            {% else %}
+                <p>Место {{ draw.place }}: без победителя.</p>
+            {% endif %}
+        {% endfor %}
+        <p>Победителям уже мог быть отправлен email о победе.</p>
         <p>Удалить сегодняшний результат и провести розыгрыш заново?</p>
     </div>
     <div class="pick-winner-dialog__actions">

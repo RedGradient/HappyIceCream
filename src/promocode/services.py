@@ -23,6 +23,8 @@ from promocode.models import DailyDraw, PromoActivation, Promocode
 
 logger = logging.getLogger(__name__)
 
+WINNERS_PER_DAY = 2
+
 PROMO_CODE_ALPHABET_LETTERS = string.ascii_uppercase
 PROMO_CODE_ALPHABET_NUMBERS = string.digits
 PROMO_CODE_LENGTH = 8
@@ -186,7 +188,9 @@ class PromoCodeService:
 class WinnerService:
     def winners_list(self, limit: int) -> list[dict[str, Any]]:
         winners = (
-            DailyDraw.objects.all().select_related("user").order_by("-date")[:limit]
+            DailyDraw.objects.all()
+            .select_related("user")
+            .order_by("-date", "place")[:limit]
         )
 
         def name_or_none(user: User | None) -> str | None:
@@ -197,6 +201,7 @@ class WinnerService:
         return [
             {
                 "date": row.date,
+                "place": row.place,
                 "name": name_or_none(row.user),
             }
             for row in winners
@@ -205,32 +210,45 @@ class WinnerService:
     @staticmethod
     def clear_today_draw() -> bool:
         """
-        Удаляет сегодняшний DailyDraw и откатывает отметки победителя за сегодня.
+        Удаляет сегодняшние DailyDraw и откатывает отметки победителей (User.winner) за сегодня.
 
         Returns:
-            True, если запись розыгрыша была удалена.
+            True, если хотя бы одна запись розыгрыша была удалена.
         """
         today = timezone.localdate()
         with transaction.atomic():
-            draw = DailyDraw.objects.select_for_update().filter(date=today).first()
-            if not draw:
+            draws = list(DailyDraw.objects.select_for_update().filter(date=today))
+            if not draws:
                 return False
 
-            if draw.user_id:
+            winner_user_ids = [draw.user_id for draw in draws if draw.user_id]
+            if winner_user_ids:
                 PromoActivation.objects.filter(
-                    user_id=draw.user_id,
+                    user_id__in=winner_user_ids,
                     is_won=True,
                     won_on=today,
                 ).update(is_won=False, won_on=None)
-                if not PromoActivation.objects.filter(
-                    user_id=draw.user_id,
-                    is_won=True,
-                ).exists():
-                    User.objects.filter(pk=draw.user_id).update(winner=False)
+                still_winners = set(
+                    PromoActivation.objects.filter(
+                        user_id__in=winner_user_ids,
+                        is_won=True,
+                    ).values_list("user_id", flat=True)
+                )
+                reset_ids = [
+                    user_id
+                    for user_id in winner_user_ids
+                    if user_id not in still_winners
+                ]
+                if reset_ids:
+                    User.objects.filter(pk__in=reset_ids).update(winner=False)
 
-            draw.delete()
-            logger.info("Cleared daily draw for redo: date=%s", today)
-            return True
+            deleted, _ = DailyDraw.objects.filter(date=today).delete()
+            logger.info(
+                "Cleared daily draw for redo: date=%s deleted=%s",
+                today,
+                deleted,
+            )
+            return deleted > 0
 
     @staticmethod
     def _get_random_promocode(activated_from: datetime) -> PromoActivation | None:
@@ -259,39 +277,62 @@ class WinnerService:
 
         return candidates[random.randrange(count)]
 
-    def _record_daily_draw(
+    def _claim_activation(
         self,
-        draw_date,
-        user: User | None = None,
-        promocode: Promocode | None = None,
-    ) -> DailyDraw:
+        activation: PromoActivation,
+        draw: DailyDraw,
+        today: date,
+    ) -> PromoActivation | None:
+        """Помечает активацию и пользователя победителем, заполняет место розыгрыша."""
         try:
-            return DailyDraw.objects.create(
-                date=draw_date,
-                user=user,
-                promocode=promocode,
+            with transaction.atomic():
+                promo_activation = PromoActivation.objects.select_for_update().get(
+                    pk=activation.pk
+                )
+                promo_activation.is_won = True
+                promo_activation.won_on = today
+                promo_activation.save(update_fields=["is_won", "won_on"])
+
+                user = promo_activation.user
+                user.winner = True
+                user.save(update_fields=["winner"])
+
+                draw.user = promo_activation.user
+                draw.promocode = promo_activation.promocode
+                draw.save(update_fields=["user", "promocode"])
+                return promo_activation
+        except PromoActivation.DoesNotExist:
+            logger.info(
+                "No winner for place: activation disappeared, "
+                "place=%s activation_id=%s promocode_id=%s",
+                draw.place,
+                activation.id,
+                activation.promocode_id,
             )
-        except IntegrityError as exc:
-            raise WinnerAlreadySelectedToday(
-                "Победитель сегодня уже определен."
-            ) from exc
+            return None
+        except IntegrityError:
+            logger.info(
+                "No winner for place: promo candidate rejected by integrity "
+                "constraint, place=%s activation_id=%s promocode_id=%s",
+                draw.place,
+                activation.id,
+                activation.promocode_id,
+            )
+            return None
 
-    def get_random_winner(self) -> PromoActivation | None:
+    def get_random_winner(self) -> list[PromoActivation]:
         """
-        Случайным образом выбирает победителя розыгрыша за текущий день.
-
-        Создаёт DailyDraw на сегодня: с user и promocode при победе
-        или без user, если победителя нет.
+        Выбирает до WINNERS_PER_DAY победителей за текущий день.
 
         Raises:
             WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
 
         Returns:
-            PromoActivation победителя либо None, если победителя нет.
+            Список PromoActivation победителей (может быть пустым).
         """
 
         today = timezone.localdate()
-        winner: PromoActivation | None = None
+        winners: list[PromoActivation] = []
 
         activated_from: datetime | None = None
         if last_draw := DailyDraw.objects.order_by("-created_at").first():
@@ -299,11 +340,13 @@ class WinnerService:
 
         try:
             with transaction.atomic():
-                # Захватываем день (unique date) — защита от гонки Celery/admin
-                draw = DailyDraw.objects.create(date=today)
+                # Предотвращение гонки между Celery task и ручным запуском определения победителя
+                # place=1 захватывает день; place=2..N создаём в той же транзакции
+                draws = [
+                    DailyDraw.objects.create(date=today, place=place)
+                    for place in range(1, WINNERS_PER_DAY + 1)
+                ]
 
-                # Если розыгрыши еще не проводились:
-                # ставим границу пула кандидатов от даты самой первой активации промокода
                 if not activated_from:
                     promo_activation = PromoActivation.objects.order_by(
                         "created_at"
@@ -314,72 +357,44 @@ class WinnerService:
                 assert activated_from is not None
 
                 logger.info(
-                    "Starting daily winner selection: draw_date=%s pool_date_from=%s",
+                    "Starting daily winner selection: draw_date=%s "
+                    "places=%s pool_date_from=%s",
                     today,
+                    WINNERS_PER_DAY,
                     activated_from,
                 )
 
-                activation = self._get_random_promocode(
-                    activated_from=activated_from,
-                )
-                if not activation:
-                    logger.warning(
-                        "No candidate activations for pool_date_from=%s",
-                        activated_from,
+                for draw in draws:
+                    activation = self._get_random_promocode(
+                        activated_from=activated_from,
                     )
-                    return None
-
-                try:
-                    with transaction.atomic():
-                        promo_activation = (
-                            PromoActivation.objects.select_for_update().get(
-                                pk=activation.pk
-                            )
+                    if not activation:
+                        logger.warning(
+                            "No candidate activations for place=%s pool_date_from=%s",
+                            draw.place,
+                            activated_from,
                         )
-                        promo_activation.is_won = True
-                        promo_activation.won_on = today
-                        promo_activation.save(update_fields=["is_won", "won_on"])
+                        continue
 
-                        user = promo_activation.user
-                        user.winner = True
-                        user.save(update_fields=["winner"])
-
-                        draw.user = promo_activation.user
-                        draw.promocode = promo_activation.promocode
-                        draw.save(update_fields=["user", "promocode"])
-                        winner = promo_activation
-                except PromoActivation.DoesNotExist:
-                    logger.info(
-                        "No winner today: activation disappeared, "
-                        "activation_id=%s promocode_id=%s",
-                        activation.id,
-                        activation.promocode_id,
-                    )
-                    return None
-                except IntegrityError:
-                    logger.info(
-                        "No winner today: promo candidate rejected by integrity "
-                        "constraint, activation_id=%s promocode_id=%s",
-                        activation.id,
-                        activation.promocode_id,
-                    )
-                    return None
+                    claimed = self._claim_activation(activation, draw, today)
+                    if claimed is not None:
+                        winners.append(claimed)
         except IntegrityError as exc:
             logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday(
                 "Победитель сегодня уже определен."
             ) from exc
 
-        if winner is not None:
+        for winner in winners:
             self._notify_winner(winner.user, winner.promocode, today)
             logger.info(
-                "Winner selected: user_id=%s promocode_id=%s code=%s won_on=%s",
+                "Winner selected: place user_id=%s promocode_id=%s code=%s won_on=%s",
                 winner.user_id,
                 winner.promocode_id,
                 winner.promocode.code,
                 today,
             )
-        return winner
+        return winners
 
     def _notify_winner(self, user: User, promocode: Promocode, date: date):
         send_mail(
@@ -427,7 +442,13 @@ class AnalyticsService:
             "next_draw_date": next_draw_date,
             "pool_date": pool_date,
             "winners_total": DailyDraw.objects.filter(user__isnull=False).count(),
-            "days_without_winner": DailyDraw.objects.filter(user__isnull=True).count(),
+            "days_without_winner": (
+                DailyDraw.objects.values("date").distinct().count()
+                - DailyDraw.objects.filter(user__isnull=False)
+                .values("date")
+                .distinct()
+                .count()
+            ),
         }
 
     @staticmethod
