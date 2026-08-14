@@ -5,7 +5,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import SafeString
+from django.utils.safestring import SafeString, mark_safe
 
 from auth.models import User
 from promocode.models import PromoActivation
@@ -132,8 +132,8 @@ class UserAdmin(DjangoUserAdmin):
             )
 
         table_rows = format_html_join(
-            "",
-            ("<tr><td>{}</td><td><code>{}</code>{}</td></tr>"),
+            mark_safe(""),
+            "<tr><td>{}</td><td><code>{}</code>{}</td></tr>",
             (
                 (
                     row.created_at.strftime("%d.%m.%Y %H:%M"),
@@ -150,18 +150,18 @@ class UserAdmin(DjangoUserAdmin):
                 PROMOCODES_PREVIEW_LIMIT,
             )
             if has_more
-            else ""
+            else mark_safe("")
         )
         return format_html(
-            '<table style="width:100%;max-width:32rem;border-collapse:collapse;">'
-            "<thead><tr>"
-            '<th style="text-align:left;padding:0.35rem 0.5rem;">Дата</th>'
-            '<th style="text-align:left;padding:0.35rem 0.5rem;">Код</th>'
-            "</tr></thead>"
-            "<tbody>{}</tbody>"
-            "</table>"
-            "{}{}",
+            "{}{}{}{}",
+            mark_safe(
+                '<table style="width:100%;max-width:32rem;border-collapse:collapse;">'
+                "<thead><tr>"
+                '<th style="text-align:left;padding:0.35rem 0.5rem;">Дата</th>'
+                '<th style="text-align:left;padding:0.35rem 0.5rem;">Код</th>'
+                "</tr></thead><tbody>"
+            ),
             table_rows,
-            more,
-            button,
+            mark_safe("</tbody></table>"),
+            format_html("{}{}", more, button),
         )
