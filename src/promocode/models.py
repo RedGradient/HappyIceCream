@@ -127,3 +127,35 @@ class DailyDraw(models.Model):
                 f"user={self.user_id} promo={self.promocode_id}"
             )
         return f"{self.date} #{self.place} ({prize}): no winner"
+
+
+class PromoAttemptReason(models.TextChoices):
+    NOT_FOUND = "not_found", "Не найден"
+    ALREADY_USED = "already_used", "Уже использован"
+
+
+class PromoAttempt(models.Model):
+    """Неудачная попытка ввода промокода (для аналитики)."""
+
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="promo_attempts",
+        db_column="user_id",
+    )
+    attempted_code = models.CharField(max_length=8, db_index=True)
+    reason = models.CharField(max_length=32, choices=PromoAttemptReason.choices)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "promo_attempts"
+        ordering: ClassVar[list] = ["-created_at"]
+        indexes: ClassVar[list] = [
+            models.Index(fields=["-created_at", "reason"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.attempted_code} ({self.reason}) user={self.user_id}"

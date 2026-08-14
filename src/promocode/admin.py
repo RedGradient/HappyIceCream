@@ -21,7 +21,7 @@ from config.tasks import (
 )
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm, SeedTestDataForm
-from promocode.models import DailyDraw, PromoActivation, Promocode
+from promocode.models import DailyDraw, PromoActivation, PromoAttempt, Promocode
 from promocode.services import (
     AnalyticsService,
     CabinetService,
@@ -48,6 +48,36 @@ class UserPromocodeAdmin(ModelAdmin):
     search_fields = ("user__username", "user__email", "promocode__code")
     ordering = ("-id",)
     raw_id_fields = ("user", "promocode")
+
+
+@admin.register(PromoAttempt)
+class PromoAttemptAdmin(ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "attempted_code",
+        "reason",
+        "ip_address",
+        "created_at",
+    )
+    list_filter = ("reason", "created_at")
+    search_fields = ("attempted_code", "user__username", "user__email", "ip_address")
+    ordering = ("-created_at",)
+    readonly_fields = (
+        "user",
+        "attempted_code",
+        "reason",
+        "ip_address",
+        "user_agent",
+        "created_at",
+    )
+    raw_id_fields = ("user",)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False
 
 
 @admin.register(DailyDraw)

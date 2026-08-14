@@ -15,6 +15,7 @@ from promocode.exceptions import (
     PromocodeDoesNotExist,
     UserProfileIncomplete,
 )
+from promocode.models import PromoAttempt, PromoAttemptReason
 from promocode.serializers import PromoCodeSerializer
 from promocode.services import CabinetService, PromoCodeService, WinnerService
 
@@ -23,6 +24,28 @@ ATTEMPT_WINDOW_SECONDS = 60
 COOLDOWN_MINUTES = 5
 SESSION_FAILED_ATTEMPTS = "failed_promo_attempt_times"
 SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
+USER_AGENT_MAX_LENGTH = 512
+
+
+def _client_ip(request) -> str | None:
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        return forwarded.split(",")[0].strip() or None
+    return request.META.get("REMOTE_ADDR") or None
+
+
+def _client_user_agent(request) -> str:
+    return (request.META.get("HTTP_USER_AGENT") or "")[:USER_AGENT_MAX_LENGTH]
+
+
+def _log_failed_promo_attempt(request, *, code: str, reason: str) -> None:
+    PromoAttempt.objects.create(
+        user=request.user,
+        attempted_code=code,
+        reason=reason,
+        ip_address=_client_ip(request),
+        user_agent=_client_user_agent(request),
+    )
 
 
 def landing(request):
@@ -161,12 +184,22 @@ class PromocodeView(APIView):
             code = code_serializer.validated_data["code"]
             PromoCodeService().apply(code, request.user.id)
         except PromocodeDoesNotExist:
+            _log_failed_promo_attempt(
+                request,
+                code=code,
+                reason=PromoAttemptReason.NOT_FOUND,
+            )
             _register_failed_attempt(request)
             return Response(
                 {"detail": "Неверный промокод"},
                 status=status.HTTP_404_NOT_FOUND,
             )
         except PromocodeAlreadyUsed:
+            _log_failed_promo_attempt(
+                request,
+                code=code,
+                reason=PromoAttemptReason.ALREADY_USED,
+            )
             _register_failed_attempt(request)
             return Response(
                 {"detail": "Неверный промокод"},
