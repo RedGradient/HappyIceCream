@@ -24,6 +24,7 @@
         color: var(--body-quiet-color, #666);
         font-size: 0.8125rem;
         font-weight: 600;
+        line-height: 1.35;
     }
 
     .analytics-card__value {
@@ -32,6 +33,10 @@
         font-weight: 700;
         line-height: 1.2;
         color: var(--body-fg, #333);
+    }
+
+    .analytics-card__value--sm {
+        font-size: 1.15rem;
     }
 
     .analytics-section {
@@ -63,10 +68,14 @@
     }
 </style>
 
+<div class="analytics-toolbar">
+    <a class="button" href="{% url 'admin:metrics_export_excel' %}">Выгрузить в Excel</a>
+</div>
+
 <h2 class="analytics-section">Пользователи</h2>
 <div class="analytics-grid">
     <div class="analytics-card">
-        <p class="analytics-card__label">Всего пользователей</p>
+        <p class="analytics-card__label">Зарегистрировались</p>
         <p class="analytics-card__value">{{ stats.users_total }}</p>
     </div>
     <div class="analytics-card">
@@ -74,44 +83,116 @@
         <p class="analytics-card__value">{{ stats.users_email_confirmed }}</p>
     </div>
     <div class="analytics-card">
-        <p class="analytics-card__label">Уникальные участники</p>
+        <p class="analytics-card__label">Заполнили ФИО, телефон, дату рождения и email</p>
+        <p class="analytics-card__value">{{ stats.users_profile_complete }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Ввели хотя бы один промокод</p>
         <p class="analytics-card__value">{{ stats.unique_participants }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Уже выиграли (больше не участвуют)</p>
+        <p class="analytics-card__value">{{ stats.users_winners }}</p>
     </div>
 </div>
 
-<h2 class="analytics-section">Промокоды и розыгрыш</h2>
+<h2 class="analytics-section">Промокоды</h2>
 <div class="analytics-grid">
     <div class="analytics-card">
-        <p class="analytics-card__label">Всего активаций</p>
+        <p class="analytics-card__label">Промокодов активировано всего</p>
         <p class="analytics-card__value">{{ stats.activations_total }}</p>
     </div>
     <div class="analytics-card">
-        <p class="analytics-card__label">Свободные промокоды</p>
+        <p class="analytics-card__label">Промокодов активировано сегодня</p>
+        <p class="analytics-card__value">{{ stats.activations_today }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Промокодов активировано за 7 дней</p>
+        <p class="analytics-card__value">{{ stats.activations_7d }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Промокодов ещё не введено</p>
         <p class="analytics-card__value">{{ stats.free_promocodes }}</p>
-    </div>
-    <div class="analytics-card">
-        <p class="analytics-card__label">Кандидаты на следующий розыгрыш</p>
-        <p class="analytics-card__value">{{ stats.next_draw_candidates }}</p>
-    </div>
-    <div class="analytics-card">
-        <p class="analytics-card__label">Дата следующего розыгрыша</p>
-        <p class="analytics-card__value">{{ stats.next_draw_date|date:"d.m.Y" }}</p>
-    </div>
-    <div class="analytics-card">
-        <p class="analytics-card__label">Дата пула кандидатов</p>
-        <p class="analytics-card__value">{{ stats.pool_date|date:"d.m.Y" }}</p>
-    </div>
-    <div class="analytics-card">
-        <p class="analytics-card__label">Победители за всё время</p>
-        <p class="analytics-card__value">{{ stats.winners_total }}</p>
-    </div>
-    <div class="analytics-card">
-        <p class="analytics-card__label">Дни без победителя</p>
-        <p class="analytics-card__value">{{ stats.days_without_winner }}</p>
     </div>
 </div>
 
-<div class="analytics-toolbar">
-    <a class="button" href="{% url 'admin:metrics_export_excel' %}">Выгрузить в Excel</a>
+<h2 class="analytics-section">Ближайший розыгрыш</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Промокодов участвует в розыгрыше</p>
+        <p class="analytics-card__value">{{ stats.pool_activations }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Людей участвует в розыгрыше</p>
+        <p class="analytics-card__value">{{ stats.pool_unique_users }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Учитываются промокоды с</p>
+        <p class="analytics-card__value analytics-card__value--sm">
+            {% if stats.pool_activated_from %}
+                {{ stats.pool_activated_from|date:"d.m.Y H:i" }}
+            {% else %}
+                —
+            {% endif %}
+        </p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Когда следующий розыгрыш</p>
+        <p class="analytics-card__value analytics-card__value--sm">
+            {{ stats.next_draw_at|date:"d.m.Y H:i" }}
+        </p>
+    </div>
+</div>
+
+<h2 class="analytics-section">Итоги розыгрышей</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Сколько раз выбрали победителя</p>
+        <p class="analytics-card__value">{{ stats.winners_total }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Победителей выбрано сегодня</p>
+        <p class="analytics-card__value">{{ stats.winners_today }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Выдали AirPods</p>
+        <p class="analytics-card__value">{{ stats.winners_airpods }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Выдали купон OZON</p>
+        <p class="analytics-card__value">{{ stats.winners_ozon }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Дней, когда выбрали меньше 2 победителей</p>
+        <p class="analytics-card__value">{{ stats.days_without_full_draw }}</p>
+    </div>
+</div>
+
+<h2 class="analytics-section">Ошибки ввода промокода</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Ошибок ввода сегодня</p>
+        <p class="analytics-card__value">{{ stats.attempts_today }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Сегодня ввели несуществующий код</p>
+        <p class="analytics-card__value">{{ stats.attempts_today_not_found }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Сегодня ввели уже использованный код</p>
+        <p class="analytics-card__value">{{ stats.attempts_today_already_used }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Ошибок ввода за 7 дней</p>
+        <p class="analytics-card__value">{{ stats.attempts_7d }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">За 7 дней: несуществующий код</p>
+        <p class="analytics-card__value">{{ stats.attempts_7d_not_found }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">За 7 дней: уже использованный код</p>
+        <p class="analytics-card__value">{{ stats.attempts_7d_already_used }}</p>
+    </div>
 </div>
 {% endblock %}

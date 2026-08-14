@@ -13,12 +13,19 @@ from promocode.exceptions import (
 )
 from promocode.models import (
     DailyDraw,
+    Prize,
     PromoActivation,
     PromoAttempt,
     PromoAttemptReason,
     Promocode,
 )
-from promocode.services import DAILY_PRIZES, PromoCodeService, WinnerService
+from promocode.services import (
+    DAILY_PRIZES,
+    AnalyticsService,
+    CabinetService,
+    PromoCodeService,
+    WinnerService,
+)
 
 
 def _create_promocode(code: str) -> Promocode:
@@ -356,8 +363,6 @@ class CabinetServiceTests(TestCase):
         )
 
     def test_participation_counts_codes_in_current_pool(self):
-        from promocode.services import CabinetService
-
         promo = _create_promocode("ABCDEFGH")
         PromoActivation.objects.create(user=self.user, promocode=promo)
 
@@ -368,8 +373,6 @@ class CabinetServiceTests(TestCase):
         self.assertEqual(data["collection_until"], data["next_draw_at"])
 
     def test_participation_zero_if_already_won(self):
-        from promocode.services import CabinetService
-
         self.user.winner = True
         self.user.save(update_fields=["winner"])
         promo = _create_promocode("ABCDEFGH")
@@ -380,8 +383,6 @@ class CabinetServiceTests(TestCase):
         self.assertTrue(data["already_won"])
 
     def test_checklist(self):
-        from promocode.services import CabinetService
-
         checklist = CabinetService.profile_checklist(self.user)
         self.assertTrue(checklist["complete"])
 
@@ -597,3 +598,72 @@ class PromoAttemptLoggingTests(TestCase):
         self.assertEqual(attempt.reason, PromoAttemptReason.ALREADY_USED)
         self.assertEqual(attempt.attempted_code, "USEDCODE")
         self.assertEqual(attempt.user_agent, "Mozilla/5.0")
+
+
+class AnalyticsServiceTests(TestCase):
+    def test_summary_counts_pool_attempts_and_profile(self):
+        complete = _create_user(
+            username="complete",
+            email="complete@example.com",
+            first_name="John",
+            last_name="Doe",
+            email_confirmed=True,
+        )
+        _create_user(
+            username="incomplete",
+            email="incomplete@example.com",
+            first_name="",
+            last_name="",
+            birth_date=None,
+            telephone_number="",
+            email_confirmed=False,
+        )
+
+        promo = _create_promocode("ABCDEFGH")
+        promo.is_taken = True
+        promo.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(user=complete, promocode=promo)
+
+        PromoAttempt.objects.create(
+            user=complete,
+            attempted_code="WRONGCOD",
+            reason=PromoAttemptReason.NOT_FOUND,
+            ip_address="127.0.0.1",
+            user_agent="test",
+        )
+        PromoAttempt.objects.create(
+            user=complete,
+            attempted_code="USEDCODE",
+            reason=PromoAttemptReason.ALREADY_USED,
+            ip_address="127.0.0.1",
+            user_agent="test",
+        )
+
+        stats = AnalyticsService.summary()
+        self.assertEqual(stats["users_total"], 2)
+        self.assertEqual(stats["users_email_confirmed"], 1)
+        self.assertEqual(stats["users_profile_complete"], 1)
+        self.assertEqual(stats["unique_participants"], 1)
+        self.assertEqual(stats["activations_total"], 1)
+        self.assertEqual(stats["activations_today"], 1)
+        self.assertEqual(stats["pool_activations"], 1)
+        self.assertEqual(stats["pool_unique_users"], 1)
+        self.assertEqual(stats["attempts_today"], 2)
+        self.assertEqual(stats["attempts_today_not_found"], 1)
+        self.assertEqual(stats["attempts_today_already_used"], 1)
+        self.assertIsNotNone(stats["next_draw_at"])
+
+        today = timezone.localdate()
+        DailyDraw.objects.create(
+            date=today,
+            place=1,
+            prize=Prize.AIRPODS,
+            user=complete,
+            promocode=promo,
+        )
+        stats_after_draw = AnalyticsService.summary()
+        self.assertEqual(stats_after_draw["winners_today"], 1)
+        self.assertEqual(stats_after_draw["winners_airpods"], 1)
+        self.assertEqual(stats_after_draw["days_without_full_draw"], 1)
+        # Активация до розыгрыша не входит в новый пул
+        self.assertEqual(stats_after_draw["pool_activations"], 0)
