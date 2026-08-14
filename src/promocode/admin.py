@@ -1,11 +1,14 @@
+from typing import Any
+
 from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
 from django.core.paginator import Paginator
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import SafeString
 from django.views.decorators.http import require_GET, require_POST
 
 from config.tasks import (
@@ -54,7 +57,7 @@ class DailyDrawAdmin(ModelAdmin):
     raw_id_fields = ("user", "promocode")
 
 
-def _winner_success_message(draw: DailyDraw):
+def _winner_success_message(draw: DailyDraw) -> SafeString:
     user = draw.user
     promocode = draw.promocode
     prize_label = draw.get_prize_display() if draw.prize else "—"
@@ -89,7 +92,7 @@ def _winner_success_message(draw: DailyDraw):
 
 
 @require_POST
-def pick_random_winner_view(request):
+def pick_random_winner_view(request: HttpRequest) -> HttpResponseRedirect:
     force = request.POST.get("force") == "1"
     try:
         if force:
@@ -115,7 +118,7 @@ def pick_random_winner_view(request):
 
 
 @require_POST
-def generate_promocodes_view(request):
+def generate_promocodes_view(request: HttpRequest) -> HttpResponseRedirect:
     form = GeneratePromocodesForm(request.POST)
     if not form.is_valid():
         messages.error(
@@ -142,7 +145,7 @@ def generate_promocodes_view(request):
 
 
 @require_GET
-def generate_promocodes_status_view(request):
+def generate_promocodes_status_view(request: HttpRequest) -> JsonResponse:
     task_id = request.GET.get("task_id") or request.session.get(
         SESSION_PROMO_GEN_TASK_ID
     )
@@ -177,7 +180,7 @@ def generate_promocodes_status_view(request):
 
 
 @require_POST
-def generate_promocodes_cancel_view(request):
+def generate_promocodes_cancel_view(request: HttpRequest) -> JsonResponse:
     task_id = request.POST.get("task_id") or request.session.get(
         SESSION_PROMO_GEN_TASK_ID
     )
@@ -204,7 +207,7 @@ def generate_promocodes_cancel_view(request):
 
 
 @require_POST
-def load_from_excel(request):
+def load_from_excel(request: HttpRequest) -> HttpResponseRedirect:
     form = ExcelFileForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, "Выберите файл Excel (.xlsx или .xls).")
@@ -221,7 +224,7 @@ def load_from_excel(request):
     return redirect("admin:index")
 
 
-def metrics_view(request):
+def metrics_view(request: HttpRequest) -> HttpResponse:
     stats = AnalyticsService.summary()
     context = {
         **admin.site.each_context(request),
@@ -232,7 +235,7 @@ def metrics_view(request):
 
 
 @require_GET
-def draw_pool_view(request):
+def draw_pool_view(request: HttpRequest) -> HttpResponse:
     qs, activated_from = WinnerService.current_pool_queryset()
     paginator = Paginator(qs, DRAW_POOL_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -252,7 +255,7 @@ def draw_pool_view(request):
 
 
 @require_GET
-def metrics_export_excel_view(request):
+def metrics_export_excel_view(request: HttpRequest) -> HttpResponse:
     content, filename = AnalyticsService.export_analytics_as_excel()
     response = HttpResponse(
         content,
@@ -268,7 +271,9 @@ _original_get_urls = admin.site.get_urls
 _original_index = admin.site.index
 
 
-def _admin_index(request, extra_context=None):
+def _admin_index(
+    request: HttpRequest, extra_context: dict[str, Any] | None = None
+) -> HttpResponse:
     extra_context = extra_context or {}
     today_draws = list(
         DailyDraw.objects.filter(date=timezone.localdate())
@@ -298,7 +303,7 @@ def _admin_index(request, extra_context=None):
     return _original_index(request, extra_context)
 
 
-def _get_urls():
+def _get_urls() -> list:
     custom_urls = [
         path(
             "metrics/",

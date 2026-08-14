@@ -297,7 +297,7 @@ class WinnerService:
         return first.created_at if first else None
 
     @classmethod
-    def current_pool_queryset(cls) -> tuple[QuerySet, datetime | None]:
+    def current_pool_queryset(cls) -> tuple[QuerySet[PromoActivation], datetime | None]:
         """
         Активации, участвующие в ближайшем розыгрыше.
 
