@@ -514,14 +514,7 @@
             align-self: stretch;
         }
 
-        .winners {
-            width: 100%;
-            margin: 0;
-            text-align: left;
-        }
-
-        .my-promos__title,
-        .winners__title {
+        .my-promos__title {
             margin: 0 0 0.75rem;
             font-family: Sora, sans-serif;
             font-size: 1rem;
@@ -537,34 +530,22 @@
             box-shadow: var(--shadow);
         }
 
-        .my-promos__table,
-        .winners__table {
+        .my-promos__table {
             width: 100%;
             border-collapse: collapse;
             background: rgba(255, 255, 255, 0.55);
             backdrop-filter: blur(8px);
             overflow: hidden;
-        }
-
-        .my-promos__table {
             border-radius: 0;
         }
 
-        .winners__table {
-            border-radius: 0.85rem;
-            box-shadow: var(--shadow);
-        }
-
         .my-promos__table th,
-        .my-promos__table td,
-        .winners__table th,
-        .winners__table td {
+        .my-promos__table td {
             padding: 0.65rem 0.9rem;
             font-size: 0.92rem;
         }
 
-        .my-promos__table th,
-        .winners__table th {
+        .my-promos__table th {
             font-family: Sora, sans-serif;
             font-weight: 700;
             font-size: 0.78rem;
@@ -576,14 +557,8 @@
             top: 0;
         }
 
-        .winners__table th {
-            position: static;
-        }
-
         .my-promos__table td:first-child,
-        .my-promos__table th:first-child,
-        .winners__table td:first-child,
-        .winners__table th:first-child {
+        .my-promos__table th:first-child {
             width: 35%;
             white-space: nowrap;
             color: var(--muted);
@@ -601,23 +576,11 @@
             font-weight: 700;
         }
 
-        .my-promos__table tbody tr + tr td,
-        .winners__table tbody tr + tr td {
+        .my-promos__table tbody tr + tr td {
             border-top: 1px solid rgba(26, 43, 51, 0.08);
         }
 
-        .winners__table tbody tr.is-empty td {
-            color: var(--muted);
-            font-style: italic;
-            background: rgba(255, 255, 255, 0.28);
-        }
-
-        .winners__none {
-            font-weight: 600;
-        }
-
-        .my-promos__empty,
-        .winners__empty {
+        .my-promos__empty {
             margin: 0;
             padding: 0.9rem;
             text-align: center;
@@ -1086,36 +1049,6 @@
                                     <p class="my-promos__empty">Вы ещё не вводили промокоды.</p>
                                 {% endif %}
                             </div>
-                        </section>
-
-                        <section class="winners" aria-label="Победители розыгрыша">
-                            <h2 class="winners__title">Победители</h2>
-                            {% if winners %}
-                                <table class="winners__table">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col">Дата</th>
-                                            <th scope="col">Имя</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for winner in winners %}
-                                            <tr{% if not winner.name %} class="is-empty"{% endif %}>
-                                                <td>{{ winner.date|date:"d.m" }}</td>
-                                                <td>
-                                                    {% if winner.name %}
-                                                        {{ winner.name }}
-                                                    {% else %}
-                                                        <span class="winners__none">Победителя нет</span>
-                                                    {% endif %}
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            {% else %}
-                                <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
-                            {% endif %}
                         </section>
                     </div>
                 {% endif %}

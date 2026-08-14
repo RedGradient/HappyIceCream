@@ -25,7 +25,8 @@ SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
 
 
 def landing(request):
-    return render(request, "landing.html")
+    winners = WinnerService().winners_list(5)
+    return render(request, "landing.html", {"winners": winners})
 
 
 @ensure_csrf_cookie
@@ -33,14 +34,12 @@ def account(request):
     if not request.user.is_authenticated:
         return redirect("login")
 
-    winner_limit = 15
-    winners = WinnerService().winners_list(winner_limit)
     user_promocodes = PromoCodeService().user_promocodes_list(request.user)
 
     return render(
         request,
         "account.html",
-        {"winners": winners, "user_promocodes": user_promocodes},
+        {"user_promocodes": user_promocodes},
     )
 
 
