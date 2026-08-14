@@ -98,18 +98,18 @@ def load_from_excel(request):
     return redirect("admin:index")
 
 
-def analytics_view(request):
+def metrics_view(request):
     stats = AnalyticsService.summary()
     context = {
         **admin.site.each_context(request),
-        "title": "Аналитика",
+        "title": "Метрики",
         "stats": stats,
     }
-    return render(request, "admin/analytics.html", context)
+    return render(request, "admin/metrics.html", context)
 
 
 @require_GET
-def analytics_export_excel_view(request):
+def metrics_export_excel_view(request):
     content, filename = AnalyticsService.export_analytics_as_excel()
     response = HttpResponse(
         content,
@@ -127,14 +127,14 @@ _original_get_urls = admin.site.get_urls
 def _get_urls():
     custom_urls = [
         path(
-            "analytics/",
-            admin.site.admin_view(analytics_view),
-            name="analytics",
+            "metrics/",
+            admin.site.admin_view(metrics_view),
+            name="metrics",
         ),
         path(
-            "analytics/export/",
-            admin.site.admin_view(analytics_export_excel_view),
-            name="analytics_export_excel",
+            "metrics/export/",
+            admin.site.admin_view(metrics_export_excel_view),
+            name="metrics_export_excel",
         ),
         path(
             "pick-random-winner/",

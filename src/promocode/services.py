@@ -405,7 +405,7 @@ class AnalyticsService:
 
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False)
-        filename = f"analytics-{timezone.localtime().strftime('%Y-%m-%d_%H-%M')}.xlsx"
+        filename = f"metrics-{timezone.localtime().strftime('%Y-%m-%d_%H-%M')}.xlsx"
         return buffer.getvalue(), filename
 
 

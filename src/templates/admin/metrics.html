@@ -34,12 +34,6 @@
         color: var(--body-fg, #333);
     }
 
-    .analytics-hint {
-        margin: 0 0 1.25rem;
-        color: var(--body-quiet-color, #666);
-        font-size: 0.8125rem;
-    }
-
     .analytics-section {
         margin: 0 0 0.75rem;
         font-size: 0.9rem;
@@ -56,7 +50,11 @@
         margin: 0 0 1.25rem;
     }
 
-    .analytics-toolbar .button {
+    .analytics-toolbar .button,
+    .analytics-toolbar a.button:link,
+    .analytics-toolbar a.button:visited,
+    .analytics-toolbar a.button:hover,
+    .analytics-toolbar a.button:focus {
         padding: 0.55rem 1.15rem;
         font-size: 0.875rem;
         font-weight: 600;
@@ -64,11 +62,6 @@
         text-decoration: none;
     }
 </style>
-
-<p class="analytics-hint">
-    Кандидаты на розыгрыш {{ stats.next_draw_date|date:"d.m.Y" }} —
-    активации за {{ stats.pool_date|date:"d.m.Y" }} (ещё не разыгранные).
-</p>
 
 <h2 class="analytics-section">Пользователи</h2>
 <div class="analytics-grid">
@@ -101,6 +94,14 @@
         <p class="analytics-card__value">{{ stats.next_draw_candidates }}</p>
     </div>
     <div class="analytics-card">
+        <p class="analytics-card__label">Дата следующего розыгрыша</p>
+        <p class="analytics-card__value">{{ stats.next_draw_date|date:"d.m.Y" }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Дата пула кандидатов</p>
+        <p class="analytics-card__value">{{ stats.pool_date|date:"d.m.Y" }}</p>
+    </div>
+    <div class="analytics-card">
         <p class="analytics-card__label">Победители за всё время</p>
         <p class="analytics-card__value">{{ stats.winners_total }}</p>
     </div>
@@ -111,6 +112,6 @@
 </div>
 
 <div class="analytics-toolbar">
-    <a class="button" href="{% url 'admin:analytics_export_excel' %}">Выгрузить в Excel</a>
+    <a class="button" href="{% url 'admin:metrics_export_excel' %}">Выгрузить в Excel</a>
 </div>
 {% endblock %}

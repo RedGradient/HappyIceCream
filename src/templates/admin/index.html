@@ -72,11 +72,16 @@
         font-size: 0.8125rem;
     }
 
-    .promo-actions__controls .button {
+    .promo-actions__controls .button,
+    .promo-actions__controls a.button:link,
+    .promo-actions__controls a.button:visited,
+    .promo-actions__controls a.button:hover,
+    .promo-actions__controls a.button:focus {
         padding: 0.55rem 1.15rem;
         font-size: 0.875rem;
         font-weight: 600;
         line-height: 1.2;
+        text-decoration: none;
     }
 
     .promo-actions__hint {
@@ -98,9 +103,9 @@
 
         <ul class="promo-actions__list">
             <li class="promo-actions__row">
-                <span class="promo-actions__label">Аналитика</span>
+                <span class="promo-actions__label">Метрики</span>
                 <div class="promo-actions__controls">
-                    <a class="button" href="{% url 'admin:analytics' %}">Открыть сводку</a>
+                    <a class="button" href="{% url 'admin:metrics' %}">Открыть</a>
                     <p class="promo-actions__hint">Пользователи, активации, розыгрыш</p>
                 </div>
             </li>
