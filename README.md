@@ -4,15 +4,18 @@
 
 # Happy Ice Cream
 
-Демо-проект акции с промокодами: публичный лендинг, регистрация/вход, личный кабинет и ежедневный розыгрыш победителя.
+Демо-проект акции с промокодами: публичный лендинг, регистрация/вход, личный кабинет и ежедневный розыгрыш.
 
 ## Возможности
 
 - Лендинг `/`, вход `/login/`, регистрация `/signup/`
-- Личный кабинет `/account/`: ввод промокода, список своих кодов, победители, ФИО, смена пароля, подписка на email
+- Личный кабинет `/account/`: ввод промокода, список кодов (устаревшие для текущего пула приглушены), статус участия, профиль, смена пароля, подписка на email
+- Для активации промокода нужны подтверждённый email, ФИО, дата рождения и телефон
 - Подтверждение email, восстановление пароля
-- Ежедневный розыгрыш (Celery Beat, 12:00 UTC) по промокодам, введённым **вчера**
-- Админка `/admin/`: генерация промокодов, импорт из Excel, ручной выбор победителя, `DailyDraw`
+- Кулдаун при неверных кодах: 3 ошибки за минуту → пауза 5 минут (с таймером в UI); неудачные попытки пишутся в `PromoAttempt`
+- Ежедневный розыгрыш (Celery Beat, **00:00 Europe/Moscow**): до **2** победителей в день, призы AirPods и купон OZON
+- В пул входят активации с момента предыдущего розыгрыша у пользователей, которые ещё не выигрывали
+- Админка `/admin/`: метрики и Excel-выгрузка, пул розыгрыша, генерация промокодов, импорт Excel, ручной выбор победителя (опционально с email), seed тестовых участников (`ALLOW_TEST_SEED`)
 
 ## Стек
 
@@ -74,6 +77,8 @@ docker compose down
 | `DJANGO_SECRET_KEY` | секрет Django |
 | `DJANGO_DEBUG` | `1` / `0` |
 | `DJANGO_ALLOWED_HOSTS` | хосты через запятую |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | origins через запятую |
+| `ALLOW_TEST_SEED` | seed тестовых участников в админке (`1` по умолчанию при `DEBUG`) |
 | `POSTGRES_HOST` | в Compose: `db`; локально: `localhost` |
 | `POSTGRES_PORT` | порт **для приложения** (в Compose всегда `5432`) |
 | `POSTGRES_PUBLISH_PORT` | порт Postgres **на хосте** (если `5432` занят — например `5433`) |
@@ -83,7 +88,7 @@ docker compose down
 | `WEB_PORT` | порт приложения на хосте |
 | `RESEND_API_KEY` | API-ключ Resend (если пусто — письма в консоль) |
 | `DEFAULT_FROM_EMAIL` | отправитель, напр. `Happy Ice Cream <noreply@happy-ice-cream.com>` |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | origins через запятую (`http://happy-ice-cream.com`, …) |
+| `RESEND_SMTP_HOST` / `PORT` / `USERNAME` / `USE_TLS` | SMTP Resend (см. `.env.example`) |
 
 Без `POSTGRES_HOST` Django использует SQLite (`src/db.sqlite3`).
 
@@ -92,6 +97,8 @@ docker compose down
 1. Домен должен быть верифицирован в [Resend](https://resend.com/domains).
 2. В `.env` укажите `RESEND_API_KEY` и `DEFAULT_FROM_EMAIL` с адресом **вашего** домена (не `resend.dev`, если шлёте реальным пользователям).
 3. Перезапустите `web` и `celery` (письма уходят и из HTTP-запросов, и из задач).
+
+На тестовом API Resend нельзя слать на адреса вроде `example.com`. Сбой отправки email не отменяет розыгрыш и активацию промокода.
 
 Проверка:
 
@@ -107,7 +114,7 @@ print('sent')
 
 ## Локальный запуск без Compose
 
-Нужны Python 3.13+ и (по желанию) PostgreSQL/Redis.
+Нужны Python 3.13+ (в Docker-образе — 3.14) и (по желанию) PostgreSQL/Redis.
 
 ```bash
 python -m venv .venv
@@ -134,6 +141,8 @@ celery -A config beat -l info
 ├── docker-compose.yml
 ├── Dockerfile
 ├── docker/entrypoint.sh
+├── nginx/
+├── docs/
 ├── .env.example
 ├── requirements.txt
 ├── requirements-dev.txt
@@ -141,7 +150,8 @@ celery -A config beat -l info
     ├── manage.py
     ├── config/          # settings, urls, celery, tasks
     ├── auth/            # пользователи, сессии, профиль
-    └── promocode/       # промокоды, кабинет, розыгрыш, админка
+    ├── promocode/       # промокоды, кабинет, розыгрыш, метрики
+    └── templates/admin/ # кастомные страницы админки
 ```
 
 Статика приложений лежит в `*/static/`. `collectstatic` собирает файлы в `src/staticfiles/` (в git не коммитится); в Docker их отдаёт WhiteNoise.
