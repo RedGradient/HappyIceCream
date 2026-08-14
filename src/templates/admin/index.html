@@ -55,6 +55,22 @@
         min-width: 0;
     }
 
+    .promo-actions__check {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .promo-actions__check input {
+        margin: 0;
+    }
+
     .promo-actions__controls input[type="number"] {
         width: 8.5rem;
         min-height: 2rem;
@@ -308,6 +324,15 @@
                         Выбрать победителя
                         <span class="promo-actions__spinner" aria-hidden="true"></span>
                     </button>
+                    <label class="promo-actions__check" for="pick-winner-send-email">
+                        <input
+                            type="checkbox"
+                            name="send_email"
+                            value="1"
+                            id="pick-winner-send-email"
+                        >
+                        Отправить email победителям
+                    </label>
                     <p class="promo-actions__hint">Закрывает розыгрыш за сегодня</p>
                 </form>
             </li>

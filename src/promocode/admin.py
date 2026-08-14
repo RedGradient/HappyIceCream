@@ -126,11 +126,12 @@ def _winner_success_message(draw: DailyDraw) -> SafeString:
 @require_POST
 def pick_random_winner_view(request: HttpRequest) -> HttpResponseRedirect:
     force = request.POST.get("force") == "1"
+    send_email = request.POST.get("send_email") == "1"
     try:
         if force:
             WinnerService.clear_today_draw()
 
-        winners = WinnerService().get_random_winner()
+        winners = WinnerService().get_random_winner(notify=send_email)
         if not winners:
             messages.info(request, "Розыгрыш закрыт: сегодня без победителей.")
         else:
