@@ -23,6 +23,8 @@ class Promocode(models.Model):
 
     class Meta:
         db_table = "promo_codes"
+        verbose_name = "Промокод"
+        verbose_name_plural = "Промокоды"
         indexes: ClassVar[list] = [
             models.Index(
                 fields=["id"],
@@ -55,6 +57,8 @@ class PromoActivation(models.Model):
 
     class Meta:
         db_table = "user_promocodes"
+        verbose_name = "Активация промокода"
+        verbose_name_plural = "Активации промокодов"
         indexes: ClassVar[list] = [
             models.Index(
                 fields=["-won_on"],
@@ -111,6 +115,8 @@ class DailyDraw(models.Model):
 
     class Meta:
         db_table = "daily_draws"
+        verbose_name = "Ежедневный розыгрыш"
+        verbose_name_plural = "Ежедневные розыгрыши"
         ordering: ClassVar[list] = ["-date", "place"]
         constraints: ClassVar[list] = [
             models.UniqueConstraint(
@@ -152,6 +158,8 @@ class PromoAttempt(models.Model):
 
     class Meta:
         db_table = "promo_attempts"
+        verbose_name = "Неудачная попытка"
+        verbose_name_plural = "Неудачные попытки"
         ordering: ClassVar[list] = ["-created_at"]
         indexes: ClassVar[list] = [
             models.Index(fields=["-created_at", "reason"]),
