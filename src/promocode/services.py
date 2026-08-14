@@ -106,7 +106,9 @@ class PromoCodeService:
 
     @staticmethod
     def _notify_on_promocode(user: User, promocode: Promocode) -> None:
-        if user.notify_on_promocode:
+        if not user.notify_on_promocode:
+            return
+        try:
             send_mail(
                 subject="HappyIceCream",
                 message=(
@@ -115,6 +117,13 @@ class PromoCodeService:
                 ),
                 from_email=None,
                 recipient_list=[user.email],
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send promocode email: user_id=%s email=%s code=%s",
+                user.id,
+                user.email,
+                promocode.code,
             )
 
     @staticmethod
