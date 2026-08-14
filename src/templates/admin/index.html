@@ -84,10 +84,89 @@
         text-decoration: none;
     }
 
+    .promo-actions__controls .button.is-loading {
+        pointer-events: none;
+        opacity: 0.9;
+    }
+
+    .promo-actions__spinner {
+        display: none;
+        width: 0.95rem;
+        height: 0.95rem;
+        margin-left: 0.45rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        vertical-align: -0.15em;
+        animation: promo-actions-spin 0.65s linear infinite;
+    }
+
+    .promo-actions__controls .button.is-loading .promo-actions__spinner {
+        display: inline-block;
+    }
+
+    @keyframes promo-actions-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
     .promo-actions__hint {
         margin: 0;
         color: var(--body-quiet-color, #666);
         font-size: 0.75rem;
+    }
+
+    .pick-winner-dialog {
+        border: 1px solid var(--hairline-color, #e8e8e8);
+        border-radius: 8px;
+        padding: 0;
+        max-width: min(28rem, calc(100vw - 2rem));
+        color: var(--body-fg, #333);
+        background: var(--body-bg, #fff);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    .pick-winner-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    .pick-winner-dialog__body {
+        padding: 1.15rem 1.25rem 0.85rem;
+    }
+
+    .pick-winner-dialog__title {
+        margin: 0 0 0.75rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .pick-winner-dialog__body p {
+        margin: 0 0 0.65rem;
+        line-height: 1.45;
+        font-size: 0.875rem;
+    }
+
+    .pick-winner-dialog__body p:last-child {
+        margin-bottom: 0;
+    }
+
+    .pick-winner-dialog__actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 0.85rem 1.25rem 1.15rem;
+        border-top: 1px solid var(--hairline-color, #e8e8e8);
+    }
+
+    .pick-winner-dialog__actions .button {
+        padding: 0.55rem 1.15rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.2;
+        text-decoration: none;
+        cursor: pointer;
     }
 
     @media (max-width: 767px) {
@@ -113,12 +192,17 @@
             <li class="promo-actions__row">
                 <span class="promo-actions__label">Розыгрыш</span>
                 <form
+                    id="pick-winner-form"
                     class="promo-actions__controls"
                     method="post"
                     action="{% url 'admin:pick_random_winner' %}"
+                    data-draw-exists="{% if today_draw %}1{% else %}0{% endif %}"
                 >
                     {% csrf_token %}
-                    <button type="submit" class="button default">Выбрать победителя</button>
+                    <button type="submit" class="button default" id="pick-winner-button">
+                        Выбрать победителя
+                        <span class="promo-actions__spinner" aria-hidden="true"></span>
+                    </button>
                     <p class="promo-actions__hint">Закрывает розыгрыш за сегодня</p>
                 </form>
             </li>
@@ -169,5 +253,106 @@
     </div>
 </div>
 
+{% if today_draw %}
+<dialog id="pick-winner-dialog" class="pick-winner-dialog" aria-labelledby="pick-winner-dialog-title">
+    <div class="pick-winner-dialog__body">
+        <h3 id="pick-winner-dialog-title" class="pick-winner-dialog__title">
+            Розыгрыш за сегодня уже проведён
+        </h3>
+        {% if today_draw.user and today_draw.promocode %}
+            {% with u=today_draw.user %}
+            <p>
+                Победитель:
+                <a href="{% url 'admin:user_auth_user_change' u.pk %}">
+                    {% if u.last_name or u.first_name or u.middle_name %}
+                        {{ u.last_name }} {{ u.first_name }} {{ u.middle_name }}
+                    {% else %}
+                        {{ u.username }}
+                    {% endif %}
+                </a>,
+                email: {{ u.email }},
+                промокод:
+                <a href="{% url 'admin:promocode_promocode_change' today_draw.promocode.pk %}">
+                    «{{ today_draw.promocode.code }}»
+                </a>.
+            </p>
+            <p>Этому пользователю уже мог быть отправлен email о победе.</p>
+            {% endwith %}
+        {% else %}
+            <p>Результат: без победителя.</p>
+        {% endif %}
+        <p>Удалить сегодняшний результат и провести розыгрыш заново?</p>
+    </div>
+    <div class="pick-winner-dialog__actions">
+        <button type="button" class="button" id="pick-winner-dialog-cancel">Отмена</button>
+        <button type="button" class="button default" id="pick-winner-dialog-confirm">
+            Провести заново
+        </button>
+    </div>
+</dialog>
+{% endif %}
+
 {{ block.super }}
+<script>
+    (function () {
+        const form = document.getElementById("pick-winner-form");
+        const button = document.getElementById("pick-winner-button");
+        const dialog = document.getElementById("pick-winner-dialog");
+        if (!form || !button) {
+            return;
+        }
+
+        function startSpinner() {
+            button.classList.add("is-loading");
+            button.setAttribute("aria-busy", "true");
+        }
+
+        function ensureForceInput() {
+            let forceInput = form.querySelector('input[name="force"]');
+            if (!forceInput) {
+                forceInput = document.createElement("input");
+                forceInput.type = "hidden";
+                forceInput.name = "force";
+                form.appendChild(forceInput);
+            }
+            forceInput.value = "1";
+        }
+
+        function submitDraw(force) {
+            if (force) {
+                ensureForceInput();
+            }
+            startSpinner();
+            HTMLFormElement.prototype.submit.call(form);
+        }
+
+        form.addEventListener("submit", function (event) {
+            if (form.dataset.drawExists !== "1" || !dialog) {
+                startSpinner();
+                return;
+            }
+
+            event.preventDefault();
+            if (typeof dialog.showModal === "function") {
+                dialog.showModal();
+            } else {
+                ensureForceInput();
+                submitDraw(true);
+            }
+        });
+
+        if (dialog) {
+            document.getElementById("pick-winner-dialog-cancel").addEventListener("click", function () {
+                dialog.close();
+            });
+            document.getElementById("pick-winner-dialog-confirm").addEventListener("click", function () {
+                dialog.close();
+                submitDraw(true);
+            });
+            dialog.addEventListener("cancel", function () {
+                dialog.close();
+            });
+        }
+    })();
+</script>
 {% endblock %}

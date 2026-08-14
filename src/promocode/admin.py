@@ -2,7 +2,9 @@ from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import path
+from django.urls import path, reverse
+from django.utils import timezone
+from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 
 from auth.models import User
@@ -41,18 +43,63 @@ class DailyDrawAdmin(ModelAdmin):
 
 @require_POST
 def pick_random_winner_view(request):
+    force = request.POST.get("force") == "1"
     try:
+        if force:
+            WinnerService.clear_today_draw()
+
         winner = WinnerService().get_random_winner()
         if winner is None:
             messages.info(request, "Розыгрыш закрыт: сегодня без победителя.")
         else:
-            user = User.objects.filter(pk=winner.user_id).first()
-            name = user.get_full_name() or user.username if user else winner.user_id
-            messages.success(
-                request,
-                f"Победитель выбран: {name} "
-                f"(promocode_id={winner.promocode_id}, дата={winner.won_on}).",
+            user = (
+                User.objects.filter(pk=winner.user_id).first()
+                if winner.user_id
+                else None
             )
+            promocode = winner.promocode
+            if user:
+                fio = (
+                    " ".join(
+                        part
+                        for part in (user.last_name, user.first_name, user.middle_name)
+                        if part
+                    )
+                    or user.username
+                )
+                user_url = reverse("admin:user_auth_user_change", args=[user.pk])
+                promo_url = reverse(
+                    "admin:promocode_promocode_change",
+                    args=[promocode.pk],
+                )
+                messages.success(
+                    request,
+                    format_html(
+                        "Победитель выбран: "
+                        '<a href="{}">{}</a>, email: {}, '
+                        'промокод: <a href="{}">«{}»</a>.',
+                        user_url,
+                        fio,
+                        user.email,
+                        promo_url,
+                        promocode.code,
+                    ),
+                )
+            else:
+                promo_url = reverse(
+                    "admin:promocode_promocode_change",
+                    args=[promocode.pk],
+                )
+                messages.success(
+                    request,
+                    format_html(
+                        "Победитель выбран: user_id={}, "
+                        'промокод: <a href="{}">«{}»</a>.',
+                        winner.user_id,
+                        promo_url,
+                        promocode.code,
+                    ),
+                )
     except WinnerAlreadySelectedToday:
         messages.warning(request, "Розыгрыш сегодня уже проведён.")
     except Exception as exc:
@@ -122,6 +169,17 @@ def metrics_export_excel_view(request):
 
 
 _original_get_urls = admin.site.get_urls
+_original_index = admin.site.index
+
+
+def _admin_index(request, extra_context=None):
+    extra_context = extra_context or {}
+    extra_context["today_draw"] = (
+        DailyDraw.objects.filter(date=timezone.localdate())
+        .select_related("user", "promocode")
+        .first()
+    )
+    return _original_index(request, extra_context)
 
 
 def _get_urls():
@@ -156,3 +214,4 @@ def _get_urls():
 
 
 admin.site.get_urls = _get_urls
+admin.site.index = _admin_index

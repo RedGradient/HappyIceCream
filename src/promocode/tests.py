@@ -281,3 +281,36 @@ class WinnerServiceTests(TestCase):
         self.assertEqual(DailyDraw.objects.count(), 1)
 
         notify_mock.assert_not_called()
+
+    @patch.object(WinnerService, "_notify_winner")
+    def test_clear_today_draw_allows_redo(self, notify_mock):
+        service = WinnerService()
+        today = timezone.localdate()
+
+        user = _create_user()
+        promocode = _create_promocode("ABCDEFGH")
+        promocode.is_taken = True
+        promocode.save(update_fields=["is_taken"])
+        activation = PromoActivation.objects.create(
+            user=user,
+            promocode=promocode,
+            created_at=timezone.now() - timedelta(days=1),
+        )
+
+        winner = service.get_random_winner()
+        self.assertIsNotNone(winner)
+        self.assertTrue(DailyDraw.objects.filter(date=today).exists())
+
+        cleared = WinnerService.clear_today_draw()
+        self.assertTrue(cleared)
+        self.assertFalse(DailyDraw.objects.filter(date=today).exists())
+
+        activation.refresh_from_db()
+        user.refresh_from_db()
+        self.assertFalse(activation.is_won)
+        self.assertIsNone(activation.won_on)
+        self.assertFalse(user.winner)
+
+        redo = service.get_random_winner()
+        self.assertIsNotNone(redo)
+        self.assertTrue(DailyDraw.objects.filter(date=today).exists())

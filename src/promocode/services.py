@@ -203,6 +203,36 @@ class WinnerService:
         ]
 
     @staticmethod
+    def clear_today_draw() -> bool:
+        """
+        Удаляет сегодняшний DailyDraw и откатывает отметки победителя за сегодня.
+
+        Returns:
+            True, если запись розыгрыша была удалена.
+        """
+        today = timezone.localdate()
+        with transaction.atomic():
+            draw = DailyDraw.objects.select_for_update().filter(date=today).first()
+            if not draw:
+                return False
+
+            if draw.user_id:
+                PromoActivation.objects.filter(
+                    user_id=draw.user_id,
+                    is_won=True,
+                    won_on=today,
+                ).update(is_won=False, won_on=None)
+                if not PromoActivation.objects.filter(
+                    user_id=draw.user_id,
+                    is_won=True,
+                ).exists():
+                    User.objects.filter(pk=draw.user_id).update(winner=False)
+
+            draw.delete()
+            logger.info("Cleared daily draw for redo: date=%s", today)
+            return True
+
+    @staticmethod
     def _get_random_promocode(activated_from: datetime) -> PromoActivation | None:
         """
         Возвращает случайную активацию из пула кандидатов на розыгрыш.
