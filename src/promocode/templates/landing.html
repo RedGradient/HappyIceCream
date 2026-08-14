@@ -10,15 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --ink: #1a2b33;
-            --muted: #4a606a;
+            --ink: #142028;
+            --muted: #5a6b73;
             --accent: #ff5c7a;
             --accent-deep: #e83d5f;
-            --bg-top: #c8f0f4;
-            --bg-mid: #ffe8f0;
-            --bg-bottom: #fff3d6;
-            --glass: rgba(255, 248, 251, 0.82);
-            --shadow: 0 18px 40px rgba(26, 43, 51, 0.12);
+            --bg-top: #d7e8ee;
+            --bg-mid: #efe8eb;
+            --bg-bottom: #f3efe9;
+            --glass: rgba(255, 255, 255, 0.88);
+            --shadow: 0 1px 2px rgba(20, 32, 40, 0.06), 0 12px 28px rgba(20, 32, 40, 0.12);
+            --radius: 0.28rem;
+            --radius-lg: 0.4rem;
         }
 
         * { box-sizing: border-box; }
@@ -58,14 +60,14 @@
             font-family: Sora, sans-serif;
             font-size: 0.88rem;
             font-weight: 700;
-            border-radius: 999px;
-            padding: 0.65rem 1.15rem;
+            border-radius: var(--radius);
+            padding: 0.65rem 1.1rem;
             border: 0;
             cursor: pointer;
         }
 
         .btn-ghost {
-            background: rgba(255, 255, 255, 0.55);
+            background: rgba(255, 255, 255, 0.7);
             color: var(--ink);
             backdrop-filter: blur(8px);
         }
@@ -108,8 +110,8 @@
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(180deg, rgba(26, 43, 51, 0.18) 0%, rgba(26, 43, 51, 0.08) 35%, rgba(26, 43, 51, 0.62) 100%),
-                radial-gradient(ellipse 70% 50% at 20% 80%, rgba(255, 92, 122, 0.22), transparent 60%);
+                linear-gradient(180deg, rgba(20, 32, 40, 0.22) 0%, rgba(20, 32, 40, 0.1) 35%, rgba(20, 32, 40, 0.68) 100%),
+                radial-gradient(ellipse 70% 50% at 20% 80%, rgba(255, 92, 122, 0.18), transparent 60%);
             pointer-events: none;
         }
 
@@ -137,7 +139,7 @@
             letter-spacing: -0.045em;
             line-height: 0.92;
             color: #fff;
-            text-shadow: 0 10px 30px rgba(26, 43, 51, 0.25);
+            text-shadow: 0 10px 30px rgba(20, 32, 40, 0.28);
         }
 
         .headline {
@@ -158,6 +160,51 @@
             line-height: 1.45;
         }
 
+        .hero__steps {
+            margin: 1.15rem 0 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 0.75rem;
+            max-width: 28rem;
+            text-align: left;
+        }
+
+        .hero__steps li {
+            display: grid;
+            grid-template-columns: 2rem 1fr;
+            gap: 0.7rem;
+            align-items: start;
+        }
+
+        .hero__steps span {
+            display: grid;
+            place-items: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: var(--radius);
+            background: var(--accent);
+            color: #fff;
+            font-family: Sora, sans-serif;
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .hero__steps strong {
+            display: block;
+            font-family: Sora, sans-serif;
+            font-size: 0.98rem;
+            color: #fff;
+            margin-bottom: 0.15rem;
+        }
+
+        .hero__steps em {
+            font-style: normal;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.92rem;
+            line-height: 1.4;
+        }
+
         .cta {
             display: flex;
             flex-wrap: wrap;
@@ -171,15 +218,11 @@
             justify-content: center;
             min-height: 3rem;
             padding: 0 1.25rem;
-            border-radius: 0.9rem;
+            border-radius: var(--radius);
             font-family: Sora, sans-serif;
             font-weight: 700;
             font-size: 0.95rem;
-            transition: transform 160ms ease, background 160ms ease;
-        }
-
-        .cta a:hover {
-            transform: translateY(-2px);
+            transition: background 160ms ease;
         }
 
         .cta__primary {
@@ -248,13 +291,8 @@
             border-bottom-color: #fff;
         }
 
-        .winners__panel {
-            display: none;
-        }
-
-        .winners__panel.is-active {
-            display: block;
-        }
+        .winners__panel { display: none; }
+        .winners__panel.is-active { display: block; }
 
         .winners__list {
             margin: 0;
@@ -299,90 +337,6 @@
             color: rgba(255, 255, 255, 0.78);
         }
 
-        .how {
-            position: relative;
-            padding: 4.5rem 1.35rem 5rem;
-            background:
-                radial-gradient(ellipse 60% 50% at 90% 10%, rgba(127, 216, 226, 0.35), transparent 55%),
-                linear-gradient(180deg, #fff7fb, var(--bg-bottom));
-        }
-
-        .how__inner {
-            width: min(100%, 40rem);
-            margin: 0 auto;
-            text-align: center;
-            animation: rise 900ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        .how h2 {
-            margin: 0;
-            font-family: Sora, sans-serif;
-            font-size: clamp(1.55rem, 4vw, 2.1rem);
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-
-        .how p {
-            margin: 0.85rem auto 0;
-            max-width: 34rem;
-            color: var(--muted);
-            font-size: 1.05rem;
-            line-height: 1.55;
-        }
-
-        .how__steps {
-            margin: 2rem 0 0;
-            padding: 0;
-            list-style: none;
-            display: grid;
-            gap: 1.1rem;
-            text-align: left;
-        }
-
-        .how__steps li {
-            display: grid;
-            grid-template-columns: 2.4rem 1fr;
-            gap: 0.85rem;
-            align-items: start;
-        }
-
-        .how__steps span {
-            display: grid;
-            place-items: center;
-            width: 2.4rem;
-            height: 2.4rem;
-            border-radius: 50%;
-            background: var(--accent);
-            color: #fff;
-            font-family: Sora, sans-serif;
-            font-weight: 800;
-            font-size: 0.95rem;
-        }
-
-        .how__steps strong {
-            display: block;
-            font-family: Sora, sans-serif;
-            font-size: 1.02rem;
-            margin-bottom: 0.2rem;
-        }
-
-        .how__steps em {
-            font-style: normal;
-            color: var(--muted);
-            line-height: 1.45;
-        }
-
-        .footer {
-            padding: 1.25rem 1.35rem 1.75rem;
-            text-align: center;
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        .footer a {
-            color: var(--accent-deep);
-            font-weight: 600;
-        }
 
         @keyframes rise {
             from { opacity: 0; transform: translateY(1.4rem); }
@@ -444,14 +398,32 @@
         <div class="hero__bottom">
             <div class="hero__content">
                 <h1 class="brand">Happy Ice Cream</h1>
-                <p class="headline">Промокод с мороженого — шанс выиграть каждый день</p>
-                <p class="lede">
-                    Собирайте коды, входите в розыгрыш и следите за победителями прямо здесь.
-                </p>
+                <p class="headline">Как участвовать</p>
+                <ol class="hero__steps">
+                    <li>
+                        <span>1</span>
+                        <div>
+                            <strong>Найдите промокод</strong>
+                            <em>На упаковке Happy Ice Cream — 8 букв или цифр.</em>
+                        </div>
+                    </li>
+                    <li>
+                        <span>2</span>
+                        <div>
+                            <strong>Войдите в кабинет</strong>
+                            <em>Зарегистрируйтесь или войдите и отправьте код.</em>
+                        </div>
+                    </li>
+                    <li>
+                        <span>3</span>
+                        <div>
+                            <strong>Ждите ежедневный розыгрыш</strong>
+                            <em>Победителя выбираем среди вчерашних кодов — и пишем на email.</em>
+                        </div>
+                    </li>
+                </ol>
                 <div class="cta">
-                    {% if user.is_authenticated %}
-                        <a class="cta__primary" href="{% url 'account' %}">Открыть кабинет</a>
-                    {% else %}
+                    {% if not user.is_authenticated %}
                         <a class="cta__primary" href="{% url 'login' %}">Войти</a>
                         <a class="cta__secondary" href="{% url 'signup' %}">Зарегистрироваться</a>
                     {% endif %}
@@ -511,43 +483,6 @@
         </div>
     </section>
 
-    <section class="how" aria-label="Как участвовать">
-        <div class="how__inner">
-            <h2>Как участвовать</h2>
-            <p>Три простых шага — без сложных условий и скрытых подписок.</p>
-            <ol class="how__steps">
-                <li>
-                    <span>1</span>
-                    <div>
-                        <strong>Найдите промокод</strong>
-                        <em>На упаковке Happy Ice Cream — 8 букв или цифр.</em>
-                    </div>
-                </li>
-                <li>
-                    <span>2</span>
-                    <div>
-                        <strong>Войдите в кабинет</strong>
-                        <em>Зарегистрируйтесь или войдите и отправьте код.</em>
-                    </div>
-                </li>
-                <li>
-                    <span>3</span>
-                    <div>
-                        <strong>Ждите ежедневный розыгрыш</strong>
-                        <em>Победителя выбираем среди вчерашних кодов — и пишем на email.</em>
-                    </div>
-                </li>
-            </ol>
-        </div>
-    </section>
-
-    <footer class="footer">
-        {% if user.is_authenticated %}
-            Уже в игре? <a href="{% url 'account' %}">Перейти в личный кабинет</a>
-        {% else %}
-            Есть аккаунт? <a href="{% url 'login' %}">Войти</a>
-        {% endif %}
-    </footer>
     <script>
         (function () {
             const root = document.querySelector(".winners");

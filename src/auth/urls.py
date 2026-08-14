@@ -3,6 +3,7 @@ from django.urls import path
 from auth.views import (
     AccountPasswordView,
     AccountView,
+    ResendConfirmEmailView,
     confirm_email,
     forgot_password,
     login_view,
@@ -21,6 +22,11 @@ urlpatterns = [
         "api/account/password/",
         AccountPasswordView.as_view(),
         name="api_account_password",
+    ),
+    path(
+        "api/account/resend-confirm-email/",
+        ResendConfirmEmailView.as_view(),
+        name="api_account_resend_confirm_email",
     ),
     path("password/forgot/", forgot_password, name="forgot_password"),
     path(

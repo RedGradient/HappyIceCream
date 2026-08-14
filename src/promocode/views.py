@@ -16,7 +16,7 @@ from promocode.exceptions import (
     UserProfileIncomplete,
 )
 from promocode.serializers import PromoCodeSerializer
-from promocode.services import PromoCodeService, WinnerService
+from promocode.services import CabinetService, PromoCodeService, WinnerService
 
 MAX_PROMO_ATTEMPTS = 3
 COOLDOWN_MINUTES = 5
@@ -35,11 +35,15 @@ def account(request):
         return redirect("login")
 
     user_promocodes = PromoCodeService().user_promocodes_list(request.user)
+    cabinet = CabinetService().summary(request.user)
 
     return render(
         request,
         "account.html",
-        {"user_promocodes": user_promocodes},
+        {
+            "user_promocodes": user_promocodes,
+            "cabinet": cabinet,
+        },
     )
 
 
@@ -137,13 +141,13 @@ class PromocodeView(APIView):
         except PromocodeDoesNotExist:
             _register_failed_attempt(request)
             return Response(
-                {"detail": "Промокод не найден"},
+                {"detail": "Неверный промокод"},
                 status=status.HTTP_404_NOT_FOUND,
             )
         except PromocodeAlreadyUsed:
             _register_failed_attempt(request)
             return Response(
-                {"detail": "Промокод уже использован"},
+                {"detail": "Неверный промокод"},
                 status=status.HTTP_409_CONFLICT,
             )
         except UserProfileIncomplete:
@@ -159,3 +163,13 @@ class PromocodeView(APIView):
 
         _clear_promo_guards(request)
         return Response({"ok": True})
+
+
+class CabinetView(APIView):
+    """GET /api/cabinet/ — участие и чеклист профиля."""
+
+    authentication_classes: ClassVar[list] = [SessionAuthentication]
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(CabinetService().summary(request.user))

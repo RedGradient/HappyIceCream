@@ -9,27 +9,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-top: #c8f0f4;
-            --bg-mid: #ffe8f0;
-            --bg-bottom: #fff3d6;
-            --ink: #1a2b33;
-            --muted: #4a606a;
+            --ink: #142028;
+            --muted: #5a6b73;
             --accent: #ff5c7a;
             --accent-deep: #e83d5f;
-            --field: rgba(255, 255, 255, 0.92);
-            --ring: rgba(26, 43, 51, 0.14);
-            --shadow: 0 18px 40px rgba(26, 43, 51, 0.08);
+            --bg: #e9f1f4;
+            --bg-warm: #f4eef0;
+            --surface: #ffffff;
+            --field: #ffffff;
+            --ring: rgba(20, 32, 40, 0.14);
+            --shadow: 0 1px 2px rgba(20, 32, 40, 0.05), 0 10px 28px rgba(20, 32, 40, 0.06);
+            --radius: 0.28rem;
+            --radius-lg: 0.4rem;
             --danger: #c62828;
-            --truck-body: #fff8fb;
-            --truck-stripe: #7fd8e2;
-            --truck-cabin: #ffe3ea;
-            --truck-metal: #d7e3e8;
-            --truck-tire: #2a3438;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         html, body {
             min-height: 100%;
@@ -40,36 +35,8 @@
             font-family: "DM Sans", sans-serif;
             color: var(--ink);
             background:
-                radial-gradient(ellipse 80% 50% at 15% 20%, rgba(255, 255, 255, 0.55), transparent 55%),
-                radial-gradient(ellipse 70% 45% at 85% 75%, rgba(255, 92, 122, 0.18), transparent 50%),
-                linear-gradient(165deg, var(--bg-top), var(--bg-mid) 48%, var(--bg-bottom));
+                linear-gradient(165deg, var(--bg) 0%, #eef3f5 42%, var(--bg-warm) 100%);
             overflow-x: hidden;
-        }
-
-        .blob {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(40px);
-            opacity: 0.55;
-            pointer-events: none;
-            animation: drift 14s ease-in-out infinite alternate;
-        }
-
-        .blob-a {
-            width: 28rem;
-            height: 28rem;
-            background: #9fe7ef;
-            top: -8rem;
-            left: -6rem;
-        }
-
-        .blob-b {
-            width: 22rem;
-            height: 22rem;
-            background: #ffb4c4;
-            right: -5rem;
-            bottom: -4rem;
-            animation-delay: -4s;
         }
 
         .hero {
@@ -78,7 +45,7 @@
             min-height: 100%;
             display: grid;
             place-items: center;
-            padding: 5rem 1.5rem 2rem;
+            padding: 5rem 1.5rem 2.5rem;
             text-align: center;
         }
 
@@ -91,15 +58,15 @@
             margin: 0;
             font-family: Sora, sans-serif;
             font-weight: 800;
-            font-size: clamp(2.4rem, 8vw, 4.2rem);
+            font-size: clamp(2.2rem, 7vw, 3.6rem);
             letter-spacing: -0.04em;
             line-height: 0.95;
         }
 
         .tagline {
-            margin: 0.85rem 0 1.5rem;
+            margin: 0.75rem 0 1.35rem;
             color: var(--muted);
-            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            font-size: clamp(1rem, 2.5vw, 1.1rem);
             line-height: 1.45;
         }
 
@@ -109,27 +76,209 @@
             font-weight: 600;
         }
 
+
+        .cabinet-status {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+            width: 100%;
+            margin: 0 0 1.25rem;
+            text-align: left;
+        }
+
+        .cabinet-card {
+            margin: 0;
+            padding: 0.95rem 1.05rem;
+            background: var(--surface);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+        }
+
+        .cabinet-card__title {
+            margin: 0 0 0.45rem;
+            font-family: Sora, sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .cabinet-card__value {
+            margin: 0;
+            font-family: Sora, sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+        }
+
+        .cabinet-card__meta {
+            margin: 0.45rem 0 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.4;
+        }
+
+        .cabinet-card__meta strong {
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        .cabinet-card--warn {
+            border-color: rgba(255, 92, 122, 0.45);
+        }
+
+        .cabinet-card__status {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .cabinet-card__status.is-ok { color: #1b7a4a; }
+        .cabinet-card__status.is-bad { color: var(--accent-deep); }
+
+        .cabinet-card__actions {
+            margin-top: 0.7rem;
+        }
+
+        .cabinet-card__actions button {
+            height: 2.4rem;
+            padding: 0 0.9rem;
+            border: 0;
+            border-radius: var(--radius);
+            background: var(--accent);
+            color: #fff;
+            font-family: Sora, sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .cabinet-card__actions button:hover:not(:disabled) {
+            background: var(--accent-deep);
+        }
+
+        .cabinet-card__actions button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .cabinet-card__msg {
+            margin: 0.45rem 0 0;
+            min-height: 1.1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+
+        .cabinet-card__msg.is-success { color: #1b7a4a; }
+        .cabinet-card__msg:empty { display: none; }
+
+        .profile-checklist {
+            width: 100%;
+            margin: 0 0 1.25rem;
+            padding: 0.95rem 1.05rem;
+            text-align: left;
+            background: var(--surface);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+        }
+
+        .profile-checklist__title {
+            margin: 0 0 0.55rem;
+            font-family: Sora, sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .profile-checklist__hint {
+            margin: 0 0 0.65rem;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.4;
+        }
+
+        .profile-checklist__list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .profile-checklist__item {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .profile-checklist__mark {
+            display: inline-grid;
+            place-items: center;
+            width: 1.15rem;
+            height: 1.15rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--ring);
+            font-size: 0.75rem;
+            flex: 0 0 auto;
+            color: #fff;
+            background: #fff;
+        }
+
+        .profile-checklist__item.is-done .profile-checklist__mark {
+            background: #1b7a4a;
+            border-color: #1b7a4a;
+        }
+
+        .profile-checklist__item:not(.is-done) .profile-checklist__mark {
+            background: transparent;
+            color: var(--muted);
+        }
+
+        .profile-checklist__item.is-done {
+            color: var(--ink);
+        }
+
+        .profile-checklist__item:not(.is-done) {
+            color: var(--muted);
+        }
+
+
         .promo-stage {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             gap: 1.1rem;
             width: 100%;
         }
 
         .promo-stage__input {
+            position: relative;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 1.1rem;
+            align-items: stretch;
             width: 100%;
             min-width: 0;
+            margin-bottom: 1.75rem;
+        }
+
+        .promo-stage__row {
+            display: flex;
+            align-items: stretch;
+            gap: 0.65rem;
+            width: 100%;
+            max-width: 34rem;
         }
 
         .promo-stage__main {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             gap: 1.25rem;
             width: 100%;
             min-width: 0;
@@ -170,168 +319,48 @@
             gap: 1.5rem 1.75rem;
         }
 
-        .promo-stage--with-list .ice-truck {
-            --truck-w: min(100%, 44rem);
-        }
-
-        .promo-stage--with-list .promo-stage__input > button {
-            align-self: center;
-        }
-
-        /* —— Ice cream truck —— */
-        .ice-truck {
-            --truck-w: min(100%, 52rem);
-            position: relative;
-            width: var(--truck-w);
-            aspect-ratio: 16 / 9;
-            margin-inline: auto;
-            filter: drop-shadow(0 22px 32px rgba(26, 43, 51, 0.18));
-            animation: truck-idle 4.5s ease-in-out infinite;
-        }
-
-        .ice-truck__body {
-            position: absolute;
-            left: 4%;
-            right: 8%;
-            top: 28%;
-            bottom: 18%;
-            background:
-                linear-gradient(180deg, #ffffff 0%, var(--truck-body) 55%, #ffeef3 100%);
-            border: 3px solid rgba(26, 43, 51, 0.12);
-            border-radius: 1.4rem 1.1rem 0.55rem 0.55rem;
-            overflow: hidden;
-        }
-
-        .ice-truck__body::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 38%;
-            height: 18%;
-            background: repeating-linear-gradient(
-                90deg,
-                var(--truck-stripe) 0 18px,
-                var(--accent) 18px 36px,
-                #fff6a8 36px 54px
-            );
-            opacity: 0.9;
-        }
-
-        .ice-truck__cabin {
-            position: absolute;
-            right: 0;
-            top: 22%;
-            width: 28%;
-            bottom: 18%;
-            background: linear-gradient(160deg, #fff 0%, var(--truck-cabin) 100%);
-            border: 3px solid rgba(26, 43, 51, 0.12);
-            border-left: 0;
-            border-radius: 0 1.6rem 0.55rem 0;
-        }
-
-        .ice-truck__windshield {
-            position: absolute;
-            inset: 12% 12% 38% 18%;
-            background: linear-gradient(160deg, #dff7fb 0%, #9fd0e0 100%);
-            border-radius: 0.55rem 1rem 0.35rem 0.35rem;
-            border: 2px solid rgba(26, 43, 51, 0.1);
-        }
-
-        .ice-truck__bumper {
-            position: absolute;
-            right: -2%;
-            top: 62%;
-            width: 8%;
-            height: 14%;
-            background: var(--truck-metal);
-            border-radius: 0.2rem 0.55rem 0.55rem 0.2rem;
-            border: 2px solid rgba(26, 43, 51, 0.1);
-        }
-
-        .ice-truck__scoop {
-            position: absolute;
-            left: 18%;
-            top: 6%;
-            width: 14%;
-            aspect-ratio: 1;
-            background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd0da 55%, var(--accent) 100%);
-            border-radius: 50%;
-            z-index: 2;
-        }
-
-        .ice-truck__scoop::after {
-            content: "";
-            position: absolute;
-            left: 28%;
-            top: 78%;
-            width: 44%;
-            height: 55%;
-            background: linear-gradient(180deg, #f6c27a, #e39b45);
-            clip-path: polygon(0 0, 100% 0, 72% 100%, 28% 100%);
-        }
-
-        .ice-truck__sign {
-            position: absolute;
-            left: 8%;
-            top: 12%;
-            z-index: 2;
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
-            background: #fff;
-            border: 2px solid rgba(26, 43, 51, 0.08);
-            font-family: Sora, sans-serif;
-            font-size: clamp(0.7rem, 2vw, 0.95rem);
-            font-weight: 800;
-            letter-spacing: 0.04em;
-            color: var(--accent-deep);
-            transform: rotate(-6deg);
-        }
-
-        /* Service opening where ice cream is handed out */
-        .ice-truck__bay {
-            position: absolute;
-            left: 10%;
-            top: 45%;
-            width: 52%;
-            height: 18%;
-            z-index: 3;
-            background: linear-gradient(180deg, #1f3138 0%, #314851 100%);
-            border-radius: 0.35rem 0.35rem 0.2rem 0.2rem;
-            border: 2px solid rgba(26, 43, 51, 0.25);
-            display: grid;
-            place-items: center;
-            padding: 0.28rem 0.4rem;
-        }
-
         .promo-otp {
             display: grid;
             grid-template-columns: repeat(8, minmax(0, 1fr));
-            gap: 0.22rem;
-            width: 100%;
-            height: 100%;
+            gap: 0.4rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 0.8rem;
+            background: #fff;
+            border: 1.5px solid rgba(255, 92, 122, 0.45);
+            border-radius: var(--radius-lg);
+            box-shadow:
+                0 0 0 3px rgba(255, 92, 122, 0.1),
+                var(--shadow);
         }
 
         .promo-otp__cell {
             width: 100%;
             min-width: 0;
-            height: 100%;
-            min-height: 1.8rem;
-            border: 0;
-            border-radius: 0.28rem;
+            aspect-ratio: 1;
+            min-height: 2.6rem;
+            border: 1px solid var(--ring);
+            border-radius: var(--radius);
             background: var(--field);
             color: var(--ink);
             font-family: Sora, sans-serif;
-            font-size: clamp(0.7rem, 2.1vw, 1.05rem);
+            font-size: clamp(0.85rem, 2.2vw, 1.15rem);
             font-weight: 700;
             text-align: center;
             text-transform: uppercase;
             outline: none;
             caret-color: var(--accent);
+            transition: border-color 140ms ease, box-shadow 140ms ease;
         }
 
         .promo-otp__cell:focus {
-            box-shadow: inset 0 0 0 2px var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(255, 92, 122, 0.25);
+        }
+
+        .promo-otp__cell:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         .promo-otp__cell::placeholder {
@@ -340,128 +369,58 @@
             font-weight: 600;
         }
 
-        /* Awning — raised above the bay */
-        .ice-truck__awning {
-            position: absolute;
-            left: 9%;
-            top: 30%;
-            width: 54%;
-            height: 16%;
-            z-index: 4;
-            transform-origin: 50% 0%;
-            transform: translateY(0);
-            animation: awning-sway 3.8s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        .ice-truck__awning-top {
-            position: absolute;
-            inset: 0 0 35% 0;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(180deg, #fff 0%, #ffe6ec 100%);
-            border: 2px solid rgba(26, 43, 51, 0.1);
-            border-radius: 0.45rem 0.45rem 0.15rem 0.15rem;
-            box-shadow: 0 6px 12px rgba(26, 43, 51, 0.12);
-            overflow: hidden;
-        }
-
-        .ice-truck__awning-valance {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 55%;
-            background:
-                radial-gradient(circle at 50% 0, var(--accent) 0 58%, transparent 59%) 0 0 / 12.5% 100% repeat-x,
-                radial-gradient(circle at 50% 0, var(--truck-stripe) 0 58%, transparent 59%) 6.25% 0 / 12.5% 100% repeat-x;
-        }
-
-        .ice-truck__wheel {
-            position: absolute;
-            bottom: 4%;
-            width: 11%;
-            aspect-ratio: 1;
-            background:
-                radial-gradient(circle at center, #cfd8dc 0 22%, transparent 23%),
-                radial-gradient(circle at center, #6b767b 0 38%, var(--truck-tire) 39% 72%, #1a2225 73%);
-            border-radius: 50%;
-            border: 2px solid rgba(26, 43, 51, 0.2);
-            z-index: 5;
-        }
-
-        .ice-truck__wheel--front {
-            right: 14%;
-        }
-
-        .ice-truck__wheel--rear {
-            left: 18%;
-        }
-
-        .ice-truck__ground {
-            position: absolute;
-            left: 8%;
-            right: 6%;
-            bottom: 7%;
-            height: 4%;
-            background: rgba(26, 43, 51, 0.08);
-            border-radius: 999px;
-            filter: blur(2px);
-            z-index: 1;
-        }
-
-        .promo-stage__input > button {
+        .promo-stage__row > button {
             flex: 0 0 auto;
-            height: 3.25rem;
-            padding: 0 1.5rem;
+            align-self: stretch;
+            width: 6.75rem;
+            padding: 0 0.65rem;
             border: 0;
-            border-radius: 0.85rem;
+            border-radius: var(--radius);
             background: var(--accent);
             color: #fff;
             font-family: Sora, sans-serif;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             font-weight: 700;
             letter-spacing: 0.01em;
             cursor: pointer;
             box-shadow: var(--shadow);
-            transition: background 160ms ease, transform 160ms ease;
+            transition: background 160ms ease;
         }
 
-        .promo-stage__input > button:hover {
+        .promo-stage__row > button:hover:not(:disabled) {
             background: var(--accent-deep);
-            transform: translateY(-1px);
         }
 
-        .promo-stage__input > button:active {
-            transform: translateY(0);
+        .promo-stage__row > button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         .promo-form__message {
-            flex: 1 0 100%;
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 0.4rem);
             margin: 0;
-            min-height: 1.25rem;
-            text-align: center;
+            text-align: left;
             font-size: 0.9rem;
             font-weight: 600;
             color: var(--danger);
+            pointer-events: none;
+            z-index: 1;
         }
 
-        .promo-form__message.is-success {
-            color: #1b7a4a;
-        }
-
-        .promo-form__message:empty {
-            display: none;
-        }
+        .promo-form__message.is-success { color: #1b7a4a; }
+        .promo-form__message:empty { display: none; }
 
         .notify-pref {
             width: 100%;
             margin: 0;
             padding: 0.95rem 1.1rem;
             text-align: left;
-            background: rgba(255, 255, 255, 0.55);
-            backdrop-filter: blur(8px);
-            border-radius: 0.85rem;
+            background: var(--surface);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
         }
 
@@ -499,13 +458,8 @@
             color: var(--danger);
         }
 
-        .notify-pref__message.is-success {
-            color: #1b7a4a;
-        }
-
-        .notify-pref__message:empty {
-            display: none;
-        }
+        .notify-pref__message.is-success { color: #1b7a4a; }
+        .notify-pref__message:empty { display: none; }
 
         .my-promos {
             width: 100%;
@@ -526,15 +480,15 @@
         .my-promos__scroll {
             max-height: min(22rem, 55vh);
             overflow: auto;
-            border-radius: 0.85rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--ring);
             box-shadow: var(--shadow);
         }
 
         .my-promos__table {
             width: 100%;
             border-collapse: collapse;
-            background: rgba(255, 255, 255, 0.55);
-            backdrop-filter: blur(8px);
+            background: var(--surface);
             overflow: hidden;
             border-radius: 0;
         }
@@ -552,7 +506,7 @@
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: var(--muted);
-            background: rgba(255, 255, 255, 0.35);
+            background: #f5f8f9;
             position: sticky;
             top: 0;
         }
@@ -586,8 +540,9 @@
             text-align: center;
             color: var(--muted);
             font-size: 0.92rem;
-            background: rgba(255, 255, 255, 0.55);
-            border-radius: 0.85rem;
+            background: var(--surface);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
         }
 
@@ -611,9 +566,9 @@
             display: grid;
             gap: 0.75rem;
             padding: 1rem;
-            background: rgba(255, 255, 255, 0.55);
-            backdrop-filter: blur(8px);
-            border-radius: 0.85rem;
+            background: var(--surface);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
         }
 
@@ -636,7 +591,7 @@
             height: 2.75rem;
             padding: 0 0.85rem;
             border: 1px solid var(--ring);
-            border-radius: 0.75rem;
+            border-radius: var(--radius);
             background: var(--field);
             color: var(--ink);
             font-family: inherit;
@@ -654,7 +609,7 @@
             margin-top: 0.15rem;
             height: 2.85rem;
             border: 0;
-            border-radius: 0.75rem;
+            border-radius: var(--radius);
             background: var(--accent);
             color: #fff;
             font-family: Sora, sans-serif;
@@ -662,13 +617,12 @@
             font-weight: 700;
             cursor: pointer;
             box-shadow: var(--shadow);
-            transition: background 160ms ease, transform 160ms ease;
+            transition: background 160ms ease;
         }
 
         .password-form button:hover,
         .profile-form button:hover {
             background: var(--accent-deep);
-            transform: translateY(-1px);
         }
 
         .password-form__message,
@@ -682,14 +636,10 @@
         }
 
         .password-form__message.is-success,
-        .profile-form__message.is-success {
-            color: #1b7a4a;
-        }
+        .profile-form__message.is-success { color: #1b7a4a; }
 
         .password-form__message:empty,
-        .profile-form__message:empty {
-            display: none;
-        }
+        .profile-form__message:empty { display: none; }
 
         .promo-stage__settings-row .account-panel {
             margin-top: 0;
@@ -724,13 +674,14 @@
             text-decoration: none;
             border: 0;
             cursor: pointer;
-            transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+            transition: background 160ms ease, color 160ms ease;
         }
 
         .topbar .btn-ghost {
             color: var(--ink);
             background: transparent;
             padding: 0.55rem 0.85rem;
+            border-radius: var(--radius);
         }
 
         .topbar .btn-ghost:hover {
@@ -741,13 +692,37 @@
             color: #fff;
             background: var(--accent);
             padding: 0.55rem 1rem;
-            border-radius: 0.75rem;
+            border-radius: var(--radius);
             box-shadow: var(--shadow);
         }
 
         .topbar .btn-solid:hover {
             background: var(--accent-deep);
-            transform: translateY(-1px);
+        }
+
+        .btn-spinner {
+            display: none;
+            width: 0.95rem;
+            height: 0.95rem;
+            margin-left: 0.45rem;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            vertical-align: -0.15em;
+            animation: btn-spin 0.65s linear infinite;
+        }
+
+        button.is-loading {
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        button.is-loading .btn-spinner {
+            display: inline-block;
+        }
+
+        @keyframes btn-spin {
+            to { transform: rotate(360deg); }
         }
 
         .visually-hidden {
@@ -763,38 +738,17 @@
         }
 
         @keyframes rise {
-            from {
-                opacity: 0;
-                transform: translateY(1.25rem);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes drift {
-            from { transform: translate(0, 0) scale(1); }
-            to { transform: translate(1.5rem, 1rem) scale(1.06); }
-        }
-
-        @keyframes truck-idle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
-        }
-
-        @keyframes awning-sway {
-            0%, 100% { transform: rotate(0deg); }
-            50% { transform: rotate(-1.2deg); }
+            from { opacity: 0; transform: translateY(1.25rem); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         @media (max-width: 860px) {
-            .promo-stage--with-list {
+            .cabinet-status {
                 grid-template-columns: 1fr;
             }
 
-            .promo-stage--with-list .ice-truck {
-                --truck-w: min(100%, 52rem);
+            .promo-stage--with-list {
+                grid-template-columns: 1fr;
             }
 
             .promo-stage__settings-row {
@@ -816,16 +770,28 @@
                 margin: 0 0 0.35rem;
             }
 
-            .ice-truck__bay input {
-                letter-spacing: 0.14em;
+            .promo-stage__row {
+                flex-wrap: wrap;
+            }
+
+            .promo-stage__row > button {
+                width: 100%;
+                min-height: 2.75rem;
+            }
+
+            .promo-otp {
+                gap: 0.28rem;
+                padding: 0.55rem;
+                width: 100%;
+            }
+
+            .promo-otp__cell {
+                min-height: 2.2rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="blob blob-a" aria-hidden="true"></div>
-    <div class="blob blob-b" aria-hidden="true"></div>
-
     <header class="topbar">
         {% if user.is_authenticated %}
             <span class="topbar-user" id="topbar-user">{{ user.get_full_name|default:user.username }}</span>
@@ -849,46 +815,87 @@
 
             <div class="promo-stage{% if user.is_authenticated %} promo-stage--with-list{% endif %}">
                 <div class="promo-stage__main">
+                    {% if user.is_authenticated %}
+
+                    <div class="cabinet-status" id="cabinet-status">
+                        <section class="cabinet-card" aria-label="Статус участия">
+                            <h2 class="cabinet-card__title">Участие в розыгрыше</h2>
+                            <p class="cabinet-card__value" id="participation-count">
+                                {{ cabinet.participation.codes_count }}
+                                {% if cabinet.participation.codes_count == 1 %}код{% elif cabinet.participation.codes_count >= 2 and cabinet.participation.codes_count <= 4 %}кода{% else %}кодов{% endif %}
+                            </p>
+                            <p class="cabinet-card__meta" id="participation-meta">
+                                {% if cabinet.participation.already_won %}
+                                    Вы уже побеждали — новые коды не участвуют в розыгрыше.
+                                {% else %}
+                                    Набор до <strong id="collection-until">{{ cabinet.participation.collection_until|date:"d.m.Y H:i" }}</strong> (МСК).<br>
+                                    Следующий розыгрыш: <strong id="next-draw-at">{{ cabinet.participation.next_draw_at|date:"d.m.Y H:i" }}</strong> (МСК).
+                                {% endif %}
+                            </p>
+                        </section>
+
+                        <section class="cabinet-card{% if not cabinet.email_confirmed %} cabinet-card--warn{% endif %}" aria-label="Статус email" id="email-status-card">
+                            <h2 class="cabinet-card__title">Email</h2>
+                            {% if cabinet.email_confirmed %}
+                                <p class="cabinet-card__status is-ok" id="email-status-text">Подтверждён</p>
+                                <p class="cabinet-card__meta">{{ cabinet.email }}</p>
+                            {% else %}
+                                <p class="cabinet-card__status is-bad" id="email-status-text">Не подтверждён</p>
+                                <p class="cabinet-card__meta">Без подтверждения промокоды не принимаются. Письмо отправлено на {{ cabinet.email }}.</p>
+                                <div class="cabinet-card__actions">
+                                    <button type="button" id="resend-confirm-email">
+                                        Отправить письмо ещё раз
+                                        <span class="btn-spinner" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <p class="cabinet-card__msg" id="email-resend-message" role="status" aria-live="polite"></p>
+                            {% endif %}
+                        </section>
+                    </div>
+
+                    <section
+                        class="profile-checklist"
+                        id="profile-checklist"
+                        aria-label="Прогресс профиля"
+                        {% if cabinet.checklist.complete %}hidden{% endif %}
+                    >
+                        <h2 class="profile-checklist__title">Для участия заполните профиль</h2>
+                        <p class="profile-checklist__hint">Осталось заполнить обязательные данные — без них промокод не примут.</p>
+                        <ul class="profile-checklist__list" id="profile-checklist-list">
+                            {% for item in cabinet.checklist.items %}
+                                <li class="profile-checklist__item{% if item.done %} is-done{% endif %}" data-key="{{ item.key }}">
+                                    <span class="profile-checklist__mark" aria-hidden="true">{% if item.done %}✓{% else %}·{% endif %}</span>
+                                    <span>{{ item.label }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+
+                    {% endif %}
                     <form class="promo-stage__input" id="promo-form">
                         {% csrf_token %}
-                        <div class="ice-truck" role="group" aria-label="Фургон с полем промокода">
-                            <div class="ice-truck__scoop" aria-hidden="true"></div>
-                            <div class="ice-truck__sign" aria-hidden="true">PROMO</div>
-                            <div class="ice-truck__body" aria-hidden="true"></div>
-                            <div class="ice-truck__cabin" aria-hidden="true">
-                                <div class="ice-truck__windshield"></div>
+                        <div class="promo-stage__row">
+                            <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
+                                {% for i in "01234567" %}
+                                    <input
+                                        class="promo-otp__cell"
+                                        type="text"
+                                        maxlength="1"
+                                        inputmode="text"
+                                        autocomplete="one-time-code"
+                                        spellcheck="false"
+                                        placeholder="·"
+                                        aria-label="Символ {{ forloop.counter }}"
+                                        {% if not user.is_authenticated %}disabled{% endif %}
+                                        {% if forloop.first %}id="promo-code-0"{% endif %}
+                                    >
+                                {% endfor %}
                             </div>
-                            <div class="ice-truck__bumper" aria-hidden="true"></div>
-                            <div class="ice-truck__ground" aria-hidden="true"></div>
-                            <div class="ice-truck__wheel ice-truck__wheel--rear" aria-hidden="true"></div>
-                            <div class="ice-truck__wheel ice-truck__wheel--front" aria-hidden="true"></div>
-
-                            <div class="ice-truck__bay">
-                                <div class="promo-otp" role="group" aria-label="Промокод из 8 символов">
-                                    {% for i in "01234567" %}
-                                        <input
-                                            class="promo-otp__cell"
-                                            type="text"
-                                            maxlength="1"
-                                            inputmode="text"
-                                            autocomplete="one-time-code"
-                                            spellcheck="false"
-                                            placeholder="·"
-                                            aria-label="Символ {{ forloop.counter }}"
-                                            {% if not user.is_authenticated %}disabled{% endif %}
-                                            {% if forloop.first %}id="promo-code-0"{% endif %}
-                                        >
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="ice-truck__awning" aria-hidden="true">
-                                <div class="ice-truck__awning-top"></div>
-                                <div class="ice-truck__awning-valance"></div>
-                            </div>
+                            <button type="submit" id="promo-submit" {% if not user.is_authenticated %}disabled{% endif %}>
+                                Отправить
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                            </button>
                         </div>
-
-                        <button type="submit" {% if not user.is_authenticated %}disabled{% endif %}>Отправить</button>
                         <p class="promo-form__message" id="promo-message" role="alert" aria-live="polite"></p>
                     </form>
 
@@ -953,7 +960,10 @@
                                                 value="{{ user.telephone_number|default_if_none:'' }}"
                                             >
                                         </div>
-                                        <button type="submit">Сохранить</button>
+                                        <button type="submit" id="profile-submit">
+                                            Сохранить
+                                            <span class="btn-spinner" aria-hidden="true"></span>
+                                        </button>
                                         <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
                                     </form>
                                 </section>
@@ -992,7 +1002,10 @@
                                                 required
                                             >
                                         </div>
-                                        <button type="submit">Сохранить пароль</button>
+                                        <button type="submit" id="password-submit">
+                                            Сохранить пароль
+                                            <span class="btn-spinner" aria-hidden="true"></span>
+                                        </button>
                                         <p class="password-form__message" id="password-message" role="alert" aria-live="polite"></p>
                                     </form>
                                 </section>
@@ -1018,6 +1031,8 @@
 
                 {% if user.is_authenticated %}
                     <div class="promo-stage__side">
+
+
                         <section class="my-promos" aria-label="Ваши промокоды">
                             <h2 class="my-promos__title">Ваши промокоды</h2>
                             <div id="my-promos-root">
@@ -1066,6 +1081,131 @@
             return input ? input.value : '';
         }
 
+        function setButtonLoading(button, loading) {
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('is-loading', Boolean(loading));
+            button.setAttribute('aria-busy', loading ? 'true' : 'false');
+            button.disabled = Boolean(loading);
+        }
+
+        function codesWord(count) {
+            const n = Math.abs(Number(count)) % 100;
+            const n1 = n % 10;
+            if (n > 10 && n < 20) return 'кодов';
+            if (n1 === 1) return 'код';
+            if (n1 >= 2 && n1 <= 4) return 'кода';
+            return 'кодов';
+        }
+
+        function formatDateTime(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+
+
+        function renderParticipation(participation) {
+            const countEl = document.getElementById('participation-count');
+            const metaEl = document.getElementById('participation-meta');
+            if (!countEl || !metaEl || !participation) {
+                return;
+            }
+            const count = participation.codes_count || 0;
+            countEl.textContent = `${count} ${codesWord(count)}`;
+            if (participation.already_won) {
+                metaEl.textContent = 'Вы уже побеждали — новые коды не участвуют в розыгрыше.';
+                return;
+            }
+            metaEl.innerHTML =
+                `Набор до <strong id="collection-until">${escapeHtml(formatDateTime(participation.collection_until))}</strong> (МСК).<br>` +
+                `Следующий розыгрыш: <strong id="next-draw-at">${escapeHtml(formatDateTime(participation.next_draw_at))}</strong> (МСК).`;
+        }
+
+        function renderChecklist(checklist) {
+            const root = document.getElementById('profile-checklist');
+            const list = document.getElementById('profile-checklist-list');
+            if (!root || !list || !checklist) {
+                return;
+            }
+            if (checklist.complete) {
+                root.hidden = true;
+                return;
+            }
+            root.hidden = false;
+            list.innerHTML = (checklist.items || []).map((item) => {
+                const done = Boolean(item.done);
+                return (
+                    `<li class="profile-checklist__item${done ? ' is-done' : ''}" data-key="${escapeHtml(item.key)}">` +
+                    `<span class="profile-checklist__mark" aria-hidden="true">${done ? '✓' : '·'}</span>` +
+                    `<span>${escapeHtml(item.label)}</span>` +
+                    '</li>'
+                );
+            }).join('');
+        }
+
+
+        async function refreshCabinet() {
+            const response = await fetch('{% url "api_cabinet" %}', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            });
+            if (!response.ok) {
+                return null;
+            }
+            const payload = await response.json().catch(() => null);
+            if (!payload) {
+                return null;
+            }
+            renderParticipation(payload.participation);
+            renderChecklist(payload.checklist);
+            return payload;
+        }
+
+        const resendButton = document.getElementById('resend-confirm-email');
+        const emailResendMessage = document.getElementById('email-resend-message');
+        if (resendButton && emailResendMessage) {
+            resendButton.addEventListener('click', async () => {
+                emailResendMessage.textContent = '';
+                emailResendMessage.classList.remove('is-success');
+                setButtonLoading(resendButton, true);
+                try {
+                    const response = await fetch('{% url "api_account_resend_confirm_email" %}', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        },
+                        body: '{}',
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        emailResendMessage.textContent =
+                            typeof payload.detail === 'string'
+                                ? payload.detail
+                                : 'Не удалось отправить письмо';
+                        return;
+                    }
+                    emailResendMessage.textContent = 'Письмо отправлено';
+                    emailResendMessage.classList.add('is-success');
+                } catch (_error) {
+                    emailResendMessage.textContent = 'Не удалось отправить письмо';
+                } finally {
+                    setButtonLoading(resendButton, false);
+                }
+            });
+        }
+
         const form = document.getElementById('promo-form');
         const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
         const messageEl = document.getElementById('promo-message');
@@ -1078,7 +1218,7 @@
 
         function getErrorMessage(payload) {
             if (!payload || typeof payload !== 'object') {
-                return 'Не удалось отправить промокод';
+                return 'Неверный промокод';
             }
             if (typeof payload.detail === 'string') {
                 return payload.detail;
@@ -1089,7 +1229,7 @@
             if (payload.code) {
                 return Array.isArray(payload.code) ? payload.code[0] : payload.code;
             }
-            return 'Не удалось отправить промокод';
+            return 'Неверный промокод';
         }
 
         function getCode() {
@@ -1216,39 +1356,46 @@
                 return;
             }
 
+            const submitButton = document.getElementById('promo-submit') || form.querySelector('button[type="submit"]');
             setMessage('');
+            setButtonLoading(submitButton, true);
 
-            const response = await fetch('{% url "promocode" %}', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                },
-                body: JSON.stringify({ code }),
-            });
+            try {
+                const response = await fetch('{% url "promocode" %}', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken(),
+                    },
+                    body: JSON.stringify({ code }),
+                });
 
-            const payload = await response.json().catch(() => ({}));
+                const payload = await response.json().catch(() => ({}));
 
-            if (!response.ok) {
-                setMessage(getErrorMessage(payload));
-                return;
+                if (!response.ok) {
+                    setMessage(getErrorMessage(payload));
+                    return;
+                }
+
+                clearPromoCells();
+
+                const listResponse = await fetch('{% url "promocode" %}', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+                const promocodes = listResponse.ok
+                    ? await listResponse.json().catch(() => [])
+                    : [];
+                renderUserPromocodes(Array.isArray(promocodes) ? promocodes : []);
+                await refreshCabinet();
+                setMessage('Промокод принят', { success: true });
+            } finally {
+                setButtonLoading(submitButton, false);
             }
-
-            clearPromoCells();
-
-            const listResponse = await fetch('{% url "promocode" %}', {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'Accept': 'application/json',
-                },
-            });
-            const promocodes = listResponse.ok
-                ? await listResponse.json().catch(() => [])
-                : [];
-            renderUserPromocodes(Array.isArray(promocodes) ? promocodes : []);
-            setMessage('Промокод принят', { success: true });
         });
 
         const notifyCheckbox = document.getElementById('notify-on-promocode');
@@ -1345,26 +1492,35 @@
                     telephone_number: profileForm.telephone_number.value.trim(),
                 };
 
-                const response = await fetch('{% url "api_account" %}', {
-                    method: 'PATCH',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCsrfToken(),
-                    },
-                    body: JSON.stringify(body),
-                });
+                const submitButton = document.getElementById('profile-submit')
+                    || profileForm.querySelector('button[type="submit"]');
+                setButtonLoading(submitButton, true);
 
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    setProfileMessage(getProfileErrorMessage(payload));
-                    return;
-                }
+                try {
+                    const response = await fetch('{% url "api_account" %}', {
+                        method: 'PATCH',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        },
+                        body: JSON.stringify(body),
+                    });
 
-                if (topbarUser && payload.full_name) {
-                    topbarUser.textContent = payload.full_name;
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        setProfileMessage(getProfileErrorMessage(payload));
+                        return;
+                    }
+
+                    if (topbarUser && payload.full_name) {
+                        topbarUser.textContent = payload.full_name;
+                    }
+                    await refreshCabinet();
+                    setProfileMessage('Данные сохранены', { success: true });
+                } finally {
+                    setButtonLoading(submitButton, false);
                 }
-                setProfileMessage('Данные сохранены', { success: true });
             });
         }
 
@@ -1405,24 +1561,32 @@
                     new_password_confirm: passwordForm.new_password_confirm.value,
                 };
 
-                const response = await fetch('{% url "api_account_password" %}', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCsrfToken(),
-                    },
-                    body: JSON.stringify(body),
-                });
+                const submitButton = document.getElementById('password-submit')
+                    || passwordForm.querySelector('button[type="submit"]');
+                setButtonLoading(submitButton, true);
 
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    setPasswordMessage(getPasswordErrorMessage(payload));
-                    return;
+                try {
+                    const response = await fetch('{% url "api_account_password" %}', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        },
+                        body: JSON.stringify(body),
+                    });
+
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        setPasswordMessage(getPasswordErrorMessage(payload));
+                        return;
+                    }
+
+                    passwordForm.reset();
+                    setPasswordMessage('Пароль обновлён', { success: true });
+                } finally {
+                    setButtonLoading(submitButton, false);
                 }
-
-                passwordForm.reset();
-                setPasswordMessage('Пароль обновлён', { success: true });
             });
         }
     </script>

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import ClassVar
 
 from django.contrib.auth import login, logout, update_session_auth_hash
@@ -108,6 +109,59 @@ class AccountPasswordView(APIView):
             )
 
         update_session_auth_hash(request, user)
+        return Response({"ok": True})
+
+
+class ResendConfirmEmailView(APIView):
+    """POST /api/account/resend-confirm-email/ — повторное письмо подтверждения."""
+
+    authentication_classes: ClassVar[list] = [SessionAuthentication]
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+    SESSION_LAST_SENT = "confirm_email_last_sent"
+    COOLDOWN_SECONDS = 60
+
+    def post(self, request):
+        if request.user.email_confirmed:
+            return Response(
+                {"detail": "Email уже подтверждён"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.utils import timezone
+
+        now = timezone.now()
+        last_raw = request.session.get(self.SESSION_LAST_SENT)
+        if last_raw:
+            try:
+                last_sent = datetime.fromisoformat(last_raw)
+            except (TypeError, ValueError):
+                last_sent = None
+            else:
+                if timezone.is_naive(last_sent):
+                    last_sent = timezone.make_aware(
+                        last_sent, timezone.get_current_timezone()
+                    )
+                elapsed = (now - last_sent).total_seconds()
+                if elapsed < self.COOLDOWN_SECONDS:
+                    wait = int(self.COOLDOWN_SECONDS - elapsed)
+                    return Response(
+                        {
+                            "detail": (
+                                f"Письмо уже отправлено. Повторите через {wait} сек."
+                            )
+                        },
+                        status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    )
+
+        try:
+            AuthService().resend_confirm_email(request.user, request)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.session[self.SESSION_LAST_SENT] = now.isoformat()
         return Response({"ok": True})
 
 

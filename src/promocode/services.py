@@ -208,6 +208,87 @@ class PromoCodeService:
         ]
 
 
+class CabinetService:
+    """Сводка для личного кабинета: участие и чеклист профиля."""
+
+    @staticmethod
+    def pool_started_at() -> datetime | None:
+        last_draw = DailyDraw.objects.order_by("-created_at").first()
+        if last_draw:
+            return last_draw.created_at
+        first = PromoActivation.objects.order_by("created_at").first()
+        return first.created_at if first else None
+
+    @staticmethod
+    def next_draw_at() -> datetime:
+        """Ближайший розыгрыш — полночь по локальному времени (Europe/Moscow)."""
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        return timezone.make_aware(
+            datetime.combine(tomorrow, datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+
+    def participation(self, user: User) -> dict[str, Any]:
+        pool_from = self.pool_started_at()
+        next_draw = self.next_draw_at()
+        eligible = not user.winner
+        if pool_from is None or not eligible:
+            codes_count = 0
+        else:
+            codes_count = PromoActivation.objects.filter(
+                user=user,
+                created_at__gte=pool_from,
+            ).count()
+
+        return {
+            "codes_count": codes_count,
+            "eligible": eligible,
+            "already_won": user.winner,
+            "collection_until": next_draw,
+            "next_draw_at": next_draw,
+        }
+
+    @staticmethod
+    def profile_checklist(user: User) -> dict[str, Any]:
+        items = [
+            {
+                "key": "name",
+                "label": "Имя и фамилия",
+                "done": bool(user.first_name and user.last_name),
+            },
+            {
+                "key": "telephone",
+                "label": "Телефон",
+                "done": bool((user.telephone_number or "").strip()),
+            },
+            {
+                "key": "birth_date",
+                "label": "Дата рождения",
+                "done": bool(user.birth_date),
+            },
+            {
+                "key": "email",
+                "label": "Email подтверждён",
+                "done": bool(user.email_confirmed),
+            },
+        ]
+        done_count = sum(1 for item in items if item["done"])
+        return {
+            "items": items,
+            "complete": done_count == len(items),
+            "done_count": done_count,
+            "total": len(items),
+        }
+
+    def summary(self, user: User) -> dict[str, Any]:
+        return {
+            "participation": self.participation(user),
+            "checklist": self.profile_checklist(user),
+            "email_confirmed": bool(user.email_confirmed),
+            "email": user.email,
+        }
+
+
 class WinnerService:
     def winners_by_day(self, days: int) -> list[dict[str, Any]]:
         """

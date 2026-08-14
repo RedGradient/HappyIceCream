@@ -109,6 +109,12 @@ class AuthService:
         )
 
     @staticmethod
+    def resend_confirm_email(user: User, request) -> None:
+        if user.email_confirmed:
+            raise ValueError("Email уже подтверждён")
+        AuthService._send_confirm_email(user, request)
+
+    @staticmethod
     def _send_confirm_email(user: User, request):
         confirm_url = AuthService._build_confirm_url(user, request)
         send_mail(

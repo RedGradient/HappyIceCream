@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
@@ -112,3 +113,22 @@ class AccountApiTests(TestCase):
             response.status_code,
             (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
         )
+
+    @patch("auth.services.send_mail")
+    def test_resend_confirm_email(self, send_mail_mock):
+        self.user.email_confirmed = False
+        self.user.save(update_fields=["email_confirmed"])
+
+        response = self.client.post(reverse("api_account_resend_confirm_email"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        send_mail_mock.assert_called_once()
+
+        again = self.client.post(reverse("api_account_resend_confirm_email"))
+        self.assertEqual(again.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_resend_confirm_email_already_confirmed(self):
+        self.user.email_confirmed = True
+        self.user.save(update_fields=["email_confirmed"])
+
+        response = self.client.post(reverse("api_account_resend_confirm_email"))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
