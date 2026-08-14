@@ -276,6 +276,7 @@
                     method="post"
                     action="{% url 'admin:generate_promocodes' %}"
                     data-status-url="{% url 'admin:generate_promocodes_status' %}"
+                    data-cancel-url="{% url 'admin:generate_promocodes_cancel' %}"
                     {% if promo_gen_task %}data-task-id="{{ promo_gen_task.task_id }}"{% endif %}
                     {% if promo_gen_task.started_at %}data-started-at="{{ promo_gen_task.started_at }}"{% endif %}
                 >
@@ -298,13 +299,21 @@
                     >
                         Запустить
                     </button>
+                    <button
+                        type="button"
+                        class="button"
+                        id="generate-promos-stop"
+                        {% if not promo_gen_task %}hidden{% endif %}
+                    >
+                        Стоп
+                    </button>
                     <p class="promo-actions__hint">Фоновая задача Celery</p>
                     <p
                         id="promo-gen-message"
-                        class="promo-gen-message{% if promo_gen_result.success %} is-success{% elif promo_gen_result %} is-error{% endif %}"
+                        class="promo-gen-message{% if promo_gen_result.cancelled %} is-success{% elif promo_gen_result.success %} is-success{% elif promo_gen_result %} is-error{% endif %}"
                         role="status"
                         aria-live="polite"
-                    >{% if promo_gen_result.success %}Генерация завершена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result %}Генерация завершилась с ошибкой: {{ promo_gen_result.error }}{% endif %}</p>
+                    >{% if promo_gen_result.cancelled %}Генерация остановлена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result.success %}Генерация завершена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result %}Генерация завершилась с ошибкой: {{ promo_gen_result.error }}{% endif %}</p>
                     <div
                         id="promo-gen-progress"
                         class="promo-gen-progress{% if promo_gen_task %} is-visible{% endif %}"
@@ -473,6 +482,7 @@
         }
 
         const statusUrl = form.dataset.statusUrl;
+        const cancelUrl = form.dataset.cancelUrl;
         const progress = document.getElementById("promo-gen-progress");
         const bar = document.getElementById("promo-gen-progress-bar");
         const label = document.getElementById("promo-gen-progress-label");
@@ -480,12 +490,15 @@
         const elapsedEl = document.getElementById("promo-gen-progress-elapsed");
         const messageEl = document.getElementById("promo-gen-message");
         const button = document.getElementById("generate-promos-button");
+        const stopButton = document.getElementById("generate-promos-stop");
         const countInput = document.getElementById("id_count");
+        const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
         let pollTimer = null;
         let tickTimer = null;
         let taskId = form.dataset.taskId || null;
         let startedAtMs = null;
         let frozenElapsed = null;
+        let stopRequested = false;
 
         function formatNumber(value) {
             return Number(value || 0).toLocaleString("ru-RU");
@@ -522,6 +535,10 @@
             if (countInput) {
                 countInput.disabled = isRunning;
             }
+            if (stopButton) {
+                stopButton.hidden = !isRunning;
+                stopButton.disabled = !isRunning || stopRequested;
+            }
             if (progress) {
                 progress.classList.toggle("is-visible", isRunning);
             }
@@ -555,7 +572,9 @@
                 percentEl.textContent = percent + "%";
             }
             if (label) {
-                if (status.state === "PENDING" || status.state === "STARTED") {
+                if (status.cancel_requested || stopRequested) {
+                    label.textContent = "Остановка…";
+                } else if (status.state === "PENDING" || status.state === "STARTED") {
                     label.textContent = "В очереди…";
                 } else if (status.total) {
                     label.textContent =
@@ -572,6 +591,12 @@
             }
             if (status.done && status.elapsed_seconds != null) {
                 frozenElapsed = status.elapsed_seconds;
+            }
+            if (status.cancel_requested) {
+                stopRequested = true;
+                if (stopButton) {
+                    stopButton.disabled = true;
+                }
             }
             renderElapsed();
         }
@@ -590,6 +615,7 @@
         function finish(status) {
             stopPolling();
             taskId = null;
+            stopRequested = false;
             form.removeAttribute("data-task-id");
             setRunning(false);
             if (progress) {
@@ -603,19 +629,30 @@
                         formatNumber(status.requested);
                 }
                 if (bar) {
-                    bar.style.width = "100%";
+                    bar.style.width = (status.percent || 100) + "%";
                 }
                 if (percentEl) {
-                    percentEl.textContent = "100%";
+                    percentEl.textContent = (status.percent || 100) + "%";
                 }
-                setMessage(
-                    "success",
-                    "Генерация завершена: создано " +
-                        formatNumber(status.created) +
-                        " из " +
-                        formatNumber(status.requested) +
-                        "."
-                );
+                if (status.cancelled) {
+                    setMessage(
+                        "success",
+                        "Генерация остановлена: создано " +
+                            formatNumber(status.created) +
+                            " из " +
+                            formatNumber(status.requested) +
+                            "."
+                    );
+                } else {
+                    setMessage(
+                        "success",
+                        "Генерация завершена: создано " +
+                            formatNumber(status.created) +
+                            " из " +
+                            formatNumber(status.requested) +
+                            "."
+                    );
+                }
             } else if (status.error) {
                 if (label) {
                     label.textContent = "Ошибка";
@@ -626,6 +663,39 @@
                 );
             }
             render(status);
+        }
+
+        function requestStop() {
+            if (!taskId || !cancelUrl || stopRequested) {
+                return;
+            }
+            stopRequested = true;
+            if (stopButton) {
+                stopButton.disabled = true;
+            }
+            if (label) {
+                label.textContent = "Остановка…";
+            }
+            const body = new URLSearchParams();
+            body.set("task_id", taskId);
+            if (csrfInput) {
+                body.set("csrfmiddlewaretoken", csrfInput.value);
+            }
+            fetch(cancelUrl, {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                credentials: "same-origin",
+                body: body.toString(),
+            }).catch(function () {
+                stopRequested = false;
+                if (stopButton) {
+                    stopButton.disabled = false;
+                }
+                setMessage("error", "Не удалось отправить команду остановки.");
+            });
         }
 
         function poll() {
@@ -666,6 +736,7 @@
             form.dataset.taskId = id;
             frozenElapsed = null;
             startedAtMs = null;
+            stopRequested = false;
             if (form.dataset.startedAt) {
                 const parsed = Date.parse(form.dataset.startedAt);
                 if (!Number.isNaN(parsed)) {
@@ -678,6 +749,10 @@
             poll();
             pollTimer = setInterval(poll, 1500);
             tickTimer = setInterval(renderElapsed, 1000);
+        }
+
+        if (stopButton) {
+            stopButton.addEventListener("click", requestStop);
         }
 
         if (taskId) {

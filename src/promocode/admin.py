@@ -12,6 +12,7 @@ from config.tasks import (
     SESSION_PROMO_GEN_TASK_ID,
     generate_promocodes,
     promo_gen_task_status,
+    request_promo_gen_cancel,
 )
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
@@ -144,6 +145,8 @@ def generate_promocodes_status_view(request):
                 "state": "ABSENT",
                 "done": True,
                 "success": False,
+                "cancelled": False,
+                "cancel_requested": False,
                 "percent": 0,
                 "current": 0,
                 "total": 0,
@@ -163,6 +166,33 @@ def generate_promocodes_status_view(request):
         request.session.pop(SESSION_PROMO_GEN_TASK_ID, None)
         request.session.pop(SESSION_PROMO_GEN_STARTED_AT, None)
     return JsonResponse(status)
+
+
+@require_POST
+def generate_promocodes_cancel_view(request):
+    task_id = request.POST.get("task_id") or request.session.get(
+        SESSION_PROMO_GEN_TASK_ID
+    )
+    if not task_id:
+        return JsonResponse(
+            {"ok": False, "error": "Нет активной генерации."},
+            status=400,
+        )
+
+    status = promo_gen_task_status(
+        task_id,
+        started_at=request.session.get(SESSION_PROMO_GEN_STARTED_AT),
+    )
+    if status["done"]:
+        request.session.pop(SESSION_PROMO_GEN_TASK_ID, None)
+        request.session.pop(SESSION_PROMO_GEN_STARTED_AT, None)
+        return JsonResponse(
+            {"ok": False, "error": "Генерация уже завершена."},
+            status=400,
+        )
+
+    request_promo_gen_cancel(task_id)
+    return JsonResponse({"ok": True, "task_id": task_id})
 
 
 @require_POST
@@ -265,6 +295,11 @@ def _get_urls():
             "generate-promocodes/status/",
             admin.site.admin_view(generate_promocodes_status_view),
             name="generate_promocodes_status",
+        ),
+        path(
+            "generate-promocodes/cancel/",
+            admin.site.admin_view(generate_promocodes_cancel_view),
+            name="generate_promocodes_cancel",
         ),
         path(
             "load-from-excel/",

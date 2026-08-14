@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime
 
+import redis
 from celery import shared_task
 from celery.result import AsyncResult
+from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -13,6 +15,33 @@ logger = logging.getLogger(__name__)
 
 SESSION_PROMO_GEN_TASK_ID = "promo_gen_task_id"
 SESSION_PROMO_GEN_STARTED_AT = "promo_gen_started_at"
+PROMO_GEN_CANCEL_KEY = "promo_gen:cancel:{task_id}"
+PROMO_GEN_CANCEL_TTL_SECONDS = 60 * 60 * 24
+
+
+def _promo_gen_redis() -> redis.Redis:
+    url = settings.CELERY_RESULT_BACKEND or settings.CELERY_BROKER_URL
+    return redis.Redis.from_url(url, decode_responses=True)
+
+
+def _cancel_key(task_id: str) -> str:
+    return PROMO_GEN_CANCEL_KEY.format(task_id=task_id)
+
+
+def clear_promo_gen_cancel(task_id: str) -> None:
+    _promo_gen_redis().delete(_cancel_key(task_id))
+
+
+def request_promo_gen_cancel(task_id: str) -> None:
+    _promo_gen_redis().setex(
+        _cancel_key(task_id),
+        PROMO_GEN_CANCEL_TTL_SECONDS,
+        "1",
+    )
+
+
+def is_promo_gen_cancelled(task_id: str) -> bool:
+    return bool(_promo_gen_redis().get(_cancel_key(task_id)))
 
 
 @shared_task(name="select_random_winner")
@@ -45,6 +74,8 @@ def generate_promocodes(self, count: int):
     logger.info("Celery generate_promocodes started: count=%s", count)
     started_at = timezone.now()
     started_at_iso = started_at.isoformat()
+    task_id = self.request.id
+    clear_promo_gen_cancel(task_id)
 
     def on_progress(created: int, total: int) -> None:
         self.update_state(
@@ -53,24 +84,29 @@ def generate_promocodes(self, count: int):
                 "current": created,
                 "total": total,
                 "started_at": started_at_iso,
+                "cancel_requested": is_promo_gen_cancelled(task_id),
             },
         )
 
-    created = PromoCodeService().generate_codes(
+    created, cancelled = PromoCodeService().generate_codes(
         count,
         progress_callback=on_progress,
+        cancel_check=lambda: is_promo_gen_cancelled(task_id),
     )
+    clear_promo_gen_cancel(task_id)
     elapsed_seconds = max(0, int((timezone.now() - started_at).total_seconds()))
     logger.info(
         "Celery generate_promocodes finished: requested=%s created=%s "
-        "elapsed_seconds=%s",
+        "cancelled=%s elapsed_seconds=%s",
         count,
         created,
+        cancelled,
         elapsed_seconds,
     )
     return {
         "created": created,
         "requested": count,
+        "cancelled": cancelled,
         "started_at": started_at_iso,
         "elapsed_seconds": elapsed_seconds,
     }
@@ -115,6 +151,8 @@ def promo_gen_task_status(
         "percent": 0,
         "done": False,
         "success": False,
+        "cancelled": False,
+        "cancel_requested": False,
         "error": None,
         "created": None,
         "requested": None,
@@ -123,6 +161,7 @@ def promo_gen_task_status(
     }
 
     if state == "PENDING":
+        payload["cancel_requested"] = is_promo_gen_cancelled(task_id)
         return payload
 
     if state == "PROGRESS":
@@ -135,6 +174,9 @@ def promo_gen_task_status(
         payload["percent"] = min(100, int(current * 100 / total)) if total > 0 else 0
         payload["started_at"] = meta_started.isoformat() if meta_started else started_at
         payload["elapsed_seconds"] = _elapsed_seconds(meta_started)
+        payload["cancel_requested"] = bool(
+            info.get("cancel_requested")
+        ) or is_promo_gen_cancelled(task_id)
         return payload
 
     if state == "SUCCESS":
@@ -142,6 +184,7 @@ def promo_gen_task_status(
         if isinstance(info, dict):
             created = int(info.get("created") or 0)
             requested = int(info.get("requested") or 0)
+            cancelled = bool(info.get("cancelled"))
             meta_started = _parse_started_at(info.get("started_at")) or fallback_started
             finished_elapsed = info.get("elapsed_seconds")
             finished_elapsed = (
@@ -150,15 +193,22 @@ def promo_gen_task_status(
         else:
             created = int(info or 0)
             requested = created
+            cancelled = False
             meta_started = fallback_started
             finished_elapsed = None
+        percent = (
+            100
+            if not cancelled and requested and created >= requested
+            else (min(100, int(created * 100 / requested)) if requested else 0)
+        )
         payload.update(
             {
                 "done": True,
                 "success": True,
+                "cancelled": cancelled,
                 "current": created,
                 "total": requested or created,
-                "percent": 100,
+                "percent": percent if cancelled else 100,
                 "created": created,
                 "requested": requested,
                 "started_at": (
@@ -191,4 +241,7 @@ def promo_gen_task_status(
         payload["percent"] = min(100, int(current * 100 / total)) if total > 0 else 0
         payload["started_at"] = meta_started.isoformat() if meta_started else started_at
         payload["elapsed_seconds"] = _elapsed_seconds(meta_started)
+        payload["cancel_requested"] = bool(
+            info.get("cancel_requested")
+        ) or is_promo_gen_cancelled(task_id)
     return payload

@@ -125,25 +125,37 @@ class PromoCodeService:
         count: int,
         batch_size: int = PROMO_CODE_BATCH_SIZE,
         progress_callback: Callable[[int, int], None] | None = None,
-    ) -> int:
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> tuple[int, bool]:
         """
         Создаёт случайные буквенные и числовые промокоды батчами через bulk_create.
 
         Args:
             progress_callback: вызывается после каждого батча с (создано, цель).
+            cancel_check: если возвращает True — генерация останавливается.
 
         Returns:
-            Число реально вставленных строк (с учётом ignore_conflicts).
+            (число вставленных строк, остановлено_флагом).
         """
         if count <= 0:
-            return 0
+            return 0, False
 
         created_total = 0
+        cancelled = False
         now = timezone.now()
         if progress_callback:
             progress_callback(0, count)
 
         while created_total < count:
+            if cancel_check and cancel_check():
+                cancelled = True
+                logger.info(
+                    "Promo codes generation cancelled: total_created=%s target=%s",
+                    created_total,
+                    count,
+                )
+                break
+
             batch_count = min(batch_size, count - created_total)
             codes: set[str] = set()
             while len(codes) < batch_count:
@@ -178,7 +190,7 @@ class PromoCodeService:
                 )
                 break
 
-        return created_total
+        return created_total, cancelled
 
     def user_promocodes_list(self, user: User) -> list[dict[str, Any]]:
         rows = (
