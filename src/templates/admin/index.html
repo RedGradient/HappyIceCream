@@ -117,11 +117,33 @@
         font-size: 0.75rem;
     }
 
+    .promo-actions__break {
+        flex-basis: 100%;
+        width: 0;
+        height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+    }
+
+    .promo-gen-footer {
+        flex: 0 1 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        width: 100%;
+        max-width: 28rem;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+    }
+
     .promo-gen-progress {
         display: none;
-        flex: 1 1 100%;
-        margin-top: 0.35rem;
-        max-width: 28rem;
+        width: 100%;
+        margin: 0;
     }
 
     .promo-gen-progress.is-visible {
@@ -159,9 +181,14 @@
         white-space: nowrap;
     }
 
+    .promo-actions .module .promo-gen-message {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
     .promo-gen-message {
-        flex: 1 1 100%;
-        margin: 0.15rem 0 0;
+        margin: 0;
+        padding: 0;
         font-size: 0.8125rem;
         font-weight: 600;
     }
@@ -176,6 +203,10 @@
 
     .promo-gen-message:empty {
         display: none;
+    }
+
+    #generate-promos-stop[hidden] {
+        display: none !important;
     }
 
     .pick-winner-dialog {
@@ -308,39 +339,42 @@
                         Стоп
                     </button>
                     <p class="promo-actions__hint">Фоновая задача Celery</p>
-                    <p
-                        id="promo-gen-message"
-                        class="promo-gen-message{% if promo_gen_result.cancelled %} is-success{% elif promo_gen_result.success %} is-success{% elif promo_gen_result %} is-error{% endif %}"
-                        role="status"
-                        aria-live="polite"
-                    >{% if promo_gen_result.cancelled %}Генерация остановлена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result.success %}Генерация завершена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result %}Генерация завершилась с ошибкой: {{ promo_gen_result.error }}{% endif %}</p>
-                    <div
-                        id="promo-gen-progress"
-                        class="promo-gen-progress{% if promo_gen_task %} is-visible{% endif %}"
-                        role="status"
-                        aria-live="polite"
-                    >
-                        <div class="promo-gen-progress__track">
-                            <div
-                                id="promo-gen-progress-bar"
-                                class="promo-gen-progress__bar"
-                                style="width: {% if promo_gen_task %}{{ promo_gen_task.percent }}{% else %}0{% endif %}%;"
-                            ></div>
-                        </div>
-                        <div class="promo-gen-progress__meta">
-                            <span id="promo-gen-progress-label">
-                                {% if promo_gen_task %}
-                                    {{ promo_gen_task.current }} / {{ promo_gen_task.total }}
-                                {% else %}
-                                    Ожидание…
-                                {% endif %}
-                            </span>
-                            <span class="promo-gen-progress__meta-right">
-                                <span id="promo-gen-progress-elapsed">0:00</span>
-                                <span id="promo-gen-progress-percent">
-                                    {% if promo_gen_task %}{{ promo_gen_task.percent }}%{% else %}0%{% endif %}
+                    <div class="promo-actions__break" aria-hidden="true"></div>
+                    <div class="promo-gen-footer">
+                        <p
+                            id="promo-gen-message"
+                            class="promo-gen-message{% if promo_gen_result.cancelled %} is-success{% elif promo_gen_result.success %} is-success{% elif promo_gen_result %} is-error{% endif %}"
+                            role="status"
+                            aria-live="polite"
+                        >{% if promo_gen_result.cancelled %}Генерация остановлена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result.success %}Генерация завершена: создано {{ promo_gen_result.created }} из {{ promo_gen_result.requested }}.{% elif promo_gen_result %}Генерация завершилась с ошибкой: {{ promo_gen_result.error }}{% endif %}</p>
+                        <div
+                            id="promo-gen-progress"
+                            class="promo-gen-progress{% if promo_gen_task %} is-visible{% endif %}"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            <div class="promo-gen-progress__track">
+                                <div
+                                    id="promo-gen-progress-bar"
+                                    class="promo-gen-progress__bar"
+                                    style="width: {% if promo_gen_task %}{{ promo_gen_task.percent }}{% else %}0{% endif %}%;"
+                                ></div>
+                            </div>
+                            <div class="promo-gen-progress__meta">
+                                <span id="promo-gen-progress-label">
+                                    {% if promo_gen_task %}
+                                        {{ promo_gen_task.current }} / {{ promo_gen_task.total }}
+                                    {% else %}
+                                        Ожидание…
+                                    {% endif %}
                                 </span>
-                            </span>
+                                <span class="promo-gen-progress__meta-right">
+                                    <span id="promo-gen-progress-elapsed">0:00</span>
+                                    <span id="promo-gen-progress-percent">
+                                        {% if promo_gen_task %}{{ promo_gen_task.percent }}%{% else %}0%{% endif %}
+                                    </span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </form>
