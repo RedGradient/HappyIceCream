@@ -214,6 +214,48 @@
             color: rgba(255, 255, 255, 0.88);
         }
 
+        .winners__tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.15rem;
+            margin: 0 0 0.65rem;
+            padding: 0;
+            list-style: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+        }
+
+        .winners__tab {
+            margin: 0;
+            padding: 0.35rem 0.55rem 0.45rem;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.62);
+            font-family: Sora, sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+            transition: color 160ms ease, border-color 160ms ease;
+        }
+
+        .winners__tab:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .winners__tab.is-active {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+
+        .winners__panel {
+            display: none;
+        }
+
+        .winners__panel.is-active {
+            display: block;
+        }
+
         .winners__list {
             margin: 0;
             padding: 0;
@@ -224,16 +266,11 @@
 
         .winners__row {
             display: grid;
-            grid-template-columns: 3.1rem 1fr auto;
+            grid-template-columns: 1fr auto;
             gap: 0.65rem;
             align-items: baseline;
             font-size: 0.92rem;
             line-height: 1.3;
-        }
-
-        .winners__date {
-            color: rgba(255, 255, 255, 0.7);
-            font-variant-numeric: tabular-nums;
         }
 
         .winners__name {
@@ -423,25 +460,50 @@
 
             <aside class="winners" aria-label="Победители розыгрыша">
                 <h2 class="winners__title">Победители</h2>
-                {% if winners %}
-                    <ul class="winners__list">
-                        {% for winner in winners %}
-                            <li class="winners__row">
-                                <span class="winners__date">{{ winner.date|date:"d.m" }}</span>
-                                {% if winner.name %}
-                                    <span class="winners__name">{{ winner.name }}</span>
-                                    {% if winner.prize_label %}
-                                        <span class="winners__prize">{{ winner.prize_label }}</span>
-                                    {% else %}
-                                        <span class="winners__prize"></span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="winners__none">Победителя нет</span>
-                                    <span class="winners__prize"></span>
-                                {% endif %}
-                            </li>
+                {% if winner_days %}
+                    <div class="winners__tabs" role="tablist" aria-label="Дни розыгрыша">
+                        {% for day in winner_days %}
+                            <button
+                                type="button"
+                                class="winners__tab{% if forloop.first %} is-active{% endif %}"
+                                role="tab"
+                                id="winners-tab-{{ forloop.counter }}"
+                                aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                                aria-controls="winners-panel-{{ forloop.counter }}"
+                                data-winners-tab="{{ forloop.counter }}"
+                            >
+                                {{ day.date|date:"d.m" }}
+                            </button>
                         {% endfor %}
-                    </ul>
+                    </div>
+                    {% for day in winner_days %}
+                        <div
+                            class="winners__panel{% if forloop.first %} is-active{% endif %}"
+                            role="tabpanel"
+                            id="winners-panel-{{ forloop.counter }}"
+                            aria-labelledby="winners-tab-{{ forloop.counter }}"
+                            {% if not forloop.first %}hidden{% endif %}
+                            data-winners-panel="{{ forloop.counter }}"
+                        >
+                            <ul class="winners__list">
+                                {% for winner in day.winners %}
+                                    <li class="winners__row">
+                                        {% if winner.name %}
+                                            <span class="winners__name">{{ winner.name }}</span>
+                                            {% if winner.prize_label %}
+                                                <span class="winners__prize">{{ winner.prize_label }}</span>
+                                            {% else %}
+                                                <span class="winners__prize"></span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="winners__none">Победителя нет</span>
+                                            <span class="winners__prize"></span>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endfor %}
                 {% else %}
                     <p class="winners__empty">Победителей пока нет — розыгрыш впереди.</p>
                 {% endif %}
@@ -486,5 +548,41 @@
             Есть аккаунт? <a href="{% url 'login' %}">Войти</a>
         {% endif %}
     </footer>
+    <script>
+        (function () {
+            const root = document.querySelector(".winners");
+            if (!root) {
+                return;
+            }
+            const tabs = root.querySelectorAll("[data-winners-tab]");
+            const panels = root.querySelectorAll("[data-winners-panel]");
+            if (!tabs.length) {
+                return;
+            }
+
+            function activate(id) {
+                tabs.forEach(function (tab) {
+                    const active = tab.getAttribute("data-winners-tab") === id;
+                    tab.classList.toggle("is-active", active);
+                    tab.setAttribute("aria-selected", active ? "true" : "false");
+                });
+                panels.forEach(function (panel) {
+                    const active = panel.getAttribute("data-winners-panel") === id;
+                    panel.classList.toggle("is-active", active);
+                    if (active) {
+                        panel.removeAttribute("hidden");
+                    } else {
+                        panel.setAttribute("hidden", "");
+                    }
+                });
+            }
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener("click", function () {
+                    activate(tab.getAttribute("data-winners-tab"));
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

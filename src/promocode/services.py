@@ -187,27 +187,49 @@ class PromoCodeService:
 
 
 class WinnerService:
-    def winners_list(self, limit: int) -> list[dict[str, Any]]:
-        winners = (
-            DailyDraw.objects.all()
-            .select_related("user")
-            .order_by("-date", "place")[:limit]
+    def winners_by_day(self, days: int) -> list[dict[str, Any]]:
+        """
+        Победители, сгруппированные по датам (новые дни первыми).
+
+        Args:
+            days: сколько последних дней розыгрыша вернуть.
+        """
+        dates = list(
+            DailyDraw.objects.order_by("-date")
+            .values_list("date", flat=True)
+            .distinct()[:days]
         )
+        if not dates:
+            return []
 
         def name_or_none(user: User | None) -> str | None:
             if not user:
                 return None
             return user.get_full_name() or user.username
 
+        rows = (
+            DailyDraw.objects.filter(date__in=dates)
+            .select_related("user")
+            .order_by("-date", "place")
+        )
+
+        by_date: dict[date, list[dict[str, Any]]] = {d: [] for d in dates}
+        for row in rows:
+            by_date[row.date].append(
+                {
+                    "place": row.place,
+                    "prize": row.prize,
+                    "prize_label": row.get_prize_display() if row.prize else None,
+                    "name": name_or_none(row.user),
+                }
+            )
+
         return [
             {
-                "date": row.date,
-                "place": row.place,
-                "prize": row.prize,
-                "prize_label": row.get_prize_display() if row.prize else None,
-                "name": name_or_none(row.user),
+                "date": draw_date,
+                "winners": by_date[draw_date],
             }
-            for row in winners
+            for draw_date in dates
         ]
 
     @staticmethod

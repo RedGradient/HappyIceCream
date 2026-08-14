@@ -25,8 +25,8 @@ SESSION_COOLDOWN_UNTIL = "promo_cooldown_until"
 
 
 def landing(request):
-    winners = WinnerService().winners_list(6)
-    return render(request, "landing.html", {"winners": winners})
+    winner_days = WinnerService().winners_by_day(7)
+    return render(request, "landing.html", {"winner_days": winner_days})
 
 
 @ensure_csrf_cookie
