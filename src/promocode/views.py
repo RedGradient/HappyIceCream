@@ -8,7 +8,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from promocode.exceptions import PromocodeAlreadyUsed, PromocodeDoesNotExist
+from promocode.exceptions import (
+    PromocodeAlreadyUsed,
+    PromocodeDoesNotExist,
+    UserProfileIncomplete,
+)
 from promocode.serializers import PromoCodeSerializer
 from promocode.services import PromoCodeService, WinnerService
 
@@ -113,6 +117,17 @@ class PromocodeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if not (user.birth_date and user.telephone_number):
+            return Response(
+                {
+                    "detail": (
+                        "Для отправки промокода необходимо указать "
+                        "дату рождения и телефон"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             code = code_serializer.validated_data["code"]
             PromoCodeService().apply(code, request.user.id)
@@ -127,6 +142,16 @@ class PromocodeView(APIView):
             return Response(
                 {"detail": "Промокод уже использован"},
                 status=status.HTTP_409_CONFLICT,
+            )
+        except UserProfileIncomplete:
+            return Response(
+                {
+                    "detail": (
+                        "Для отправки промокода необходимо указать "
+                        "дату рождения и телефон"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         _clear_promo_guards(request)

@@ -16,6 +16,7 @@ from auth.models import User
 from promocode.exceptions import (
     PromocodeAlreadyUsed,
     PromocodeDoesNotExist,
+    UserProfileIncomplete,
     WinnerAlreadySelectedToday,
 )
 from promocode.models import DailyDraw, PromoActivation, Promocode
@@ -36,16 +37,20 @@ class PromoCodeService:
         Привязывает существующий промокод к пользователю.
 
         Raises:
-            PromocodeDoesNotExists: промокод не найден в справочнике.
+            PromocodeDoesNotExist: промокод не найден в справочнике.
             PromocodeAlreadyUsed: промокод уже был использован.
+            UserProfileIncomplete: не заполнены обязательные поля профиля.
 
         Returns:
-            Созданная запись UserPromocode.
+            Созданная запись PromoActivation.
         """
 
         try:
             with transaction.atomic():
                 user = User.objects.get(id=user_id)
+                if not user.birth_date or not (user.telephone_number or "").strip():
+                    raise UserProfileIncomplete
+
                 promocode = Promocode.objects.select_for_update().get(code=code)
 
                 if promocode.is_taken:

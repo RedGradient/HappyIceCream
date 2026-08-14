@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
@@ -8,6 +8,7 @@ from auth.models import User
 from promocode.exceptions import (
     PromocodeAlreadyUsed,
     PromocodeDoesNotExist,
+    UserProfileIncomplete,
     WinnerAlreadySelectedToday,
 )
 from promocode.models import DailyDraw, PromoActivation, Promocode
@@ -21,12 +22,16 @@ def _create_promocode(code: str) -> Promocode:
     )
 
 
-def _create_user() -> User:
-    return User.objects.create(
-        username="john_doe",
-        email="john@example.com",
-        notify_on_promocode=True,
-    )
+def _create_user(**extra) -> User:
+    defaults = {
+        "username": "john_doe",
+        "email": "john@example.com",
+        "notify_on_promocode": True,
+        "birth_date": date(1990, 1, 15),
+        "telephone_number": "+79001234567",
+    }
+    defaults.update(extra)
+    return User.objects.create(**defaults)
 
 
 @patch.object(PromoCodeService, "_notify_on_promocode")
@@ -75,16 +80,28 @@ class PromocodeServiceTests(TestCase):
         self.service.apply(promocode.code, user_1.id)
 
         # Создаем пользователя 2, которого ждет неприятный сюрприз
-        user_2 = User.objects.create(
-            username="alice",
-            email="alice@example.com",
-            notify_on_promocode=True,
-        )
+        user_2 = _create_user(username="alice", email="alice@example.com")
         # Пользователь 2 применяет промокод и получает ошибку
         with self.assertRaises(PromocodeAlreadyUsed):
             self.service.apply(promocode.code, user_2.id)
 
         self.assertEqual(notify_mock.call_count, 1)
+
+    def test_apply_profile_incomplete(self, notify_mock):
+        promocode = _create_promocode("ABCDEFGH")
+        incomplete = _create_user(
+            username="no_phone",
+            email="nop@example.com",
+            birth_date=None,
+            telephone_number=None,
+        )
+
+        with self.assertRaises(UserProfileIncomplete):
+            self.service.apply(promocode.code, incomplete.id)
+
+        notify_mock.assert_not_called()
+        promocode.refresh_from_db()
+        self.assertFalse(promocode.is_taken)
 
     def test_user_promocodes_list(self, notify_mock):
         # Создаем и применяем промокоды

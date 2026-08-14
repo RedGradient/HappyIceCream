@@ -6,5 +6,9 @@ class PromocodeAlreadyUsed(Exception):
     pass
 
 
+class UserProfileIncomplete(Exception):
+    pass
+
+
 class WinnerAlreadySelectedToday(Exception):
     pass
