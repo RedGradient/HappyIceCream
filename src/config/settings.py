@@ -33,6 +33,7 @@ SECRET_KEY = os.environ.get(
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+ALLOW_TEST_SEED = os.environ.get("ALLOW_TEST_SEED", "1" if DEBUG else "0") == "1"
 
 ALLOWED_HOSTS = [
     host.strip()

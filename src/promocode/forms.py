@@ -10,6 +10,15 @@ class GeneratePromocodesForm(forms.Form):
     )
 
 
+class SeedTestDataForm(forms.Form):
+    count = forms.IntegerField(
+        label="Количество участников",
+        min_value=1,
+        max_value=100,
+        initial=5,
+    )
+
+
 class ExcelFileForm(forms.Form):
     file = forms.FileField(
         label="Excel-файл",

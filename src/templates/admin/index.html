@@ -413,6 +413,36 @@
                     <p class="promo-actions__hint">Один столбец с кодами</p>
                 </form>
             </li>
+
+            {% if allow_test_seed %}
+            <li class="promo-actions__row">
+                <label class="promo-actions__label" for="id_seed_count">Тестовые данные</label>
+                <form
+                    id="seed-test-data-form"
+                    class="promo-actions__controls"
+                    method="post"
+                    action="{% url 'admin:seed_test_data' %}"
+                >
+                    {% csrf_token %}
+                    <input
+                        id="id_seed_count"
+                        type="number"
+                        name="count"
+                        min="1"
+                        max="100"
+                        value="5"
+                        required
+                    >
+                    <button type="submit" class="button" id="seed-test-data-button">
+                        Создать участников
+                        <span class="promo-actions__spinner" aria-hidden="true"></span>
+                    </button>
+                    <p class="promo-actions__hint">
+                        User + промокод + активация (пароль: testpass123)
+                    </p>
+                </form>
+            </li>
+            {% endif %}
         </ul>
     </div>
 </div>
@@ -805,6 +835,18 @@
         if (taskId) {
             startPolling(taskId);
         }
+    })();
+
+    (function () {
+        const form = document.getElementById("seed-test-data-form");
+        const button = document.getElementById("seed-test-data-button");
+        if (!form || !button) {
+            return;
+        }
+        form.addEventListener("submit", function () {
+            button.classList.add("is-loading");
+            button.setAttribute("aria-busy", "true");
+        });
     })();
 </script>
 {% endblock %}

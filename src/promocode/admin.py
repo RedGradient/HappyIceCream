@@ -1,5 +1,6 @@
 from typing import Any
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin.options import ModelAdmin
 from django.core.paginator import Paginator
@@ -19,12 +20,13 @@ from config.tasks import (
     request_promo_gen_cancel,
 )
 from promocode.exceptions import WinnerAlreadySelectedToday
-from promocode.forms import ExcelFileForm, GeneratePromocodesForm
+from promocode.forms import ExcelFileForm, GeneratePromocodesForm, SeedTestDataForm
 from promocode.models import DailyDraw, PromoActivation, Promocode
 from promocode.services import (
     AnalyticsService,
     CabinetService,
     ExcelService,
+    TestDataService,
     WinnerService,
 )
 
@@ -224,6 +226,35 @@ def load_from_excel(request: HttpRequest) -> HttpResponseRedirect:
     return redirect("admin:index")
 
 
+@require_POST
+def seed_test_data_view(request: HttpRequest) -> HttpResponseRedirect:
+    if not getattr(settings, "ALLOW_TEST_SEED", False):
+        messages.error(request, "Создание тестовых данных отключено.")
+        return redirect("admin:index")
+
+    form = SeedTestDataForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Укажите число участников от 1 до 100.")
+        return redirect("admin:index")
+
+    try:
+        result = TestDataService.seed_participants(form.cleaned_data["count"])
+    except Exception as exc:
+        messages.error(request, f"Не удалось создать тестовые данные: {exc}")
+        return redirect("admin:index")
+
+    messages.success(
+        request,
+        (
+            f"Создано участников: {result['users']}, "
+            f"промокодов: {result['promocodes']}, "
+            f"активаций: {result['activations']}. "
+            f"Пароль для входа: {result['password']}"
+        ),
+    )
+    return redirect("admin:index")
+
+
 def metrics_view(request: HttpRequest) -> HttpResponse:
     stats = AnalyticsService.summary()
     context = {
@@ -283,6 +314,7 @@ def _admin_index(
     extra_context["today_draws"] = today_draws
     extra_context["today_draw"] = bool(today_draws)
     extra_context["draw_pool"] = WinnerService.current_pool_summary()
+    extra_context["allow_test_seed"] = getattr(settings, "ALLOW_TEST_SEED", False)
 
     task_id = request.session.get(SESSION_PROMO_GEN_TASK_ID)
     promo_gen = None
@@ -344,6 +376,11 @@ def _get_urls() -> list:
             "load-from-excel/",
             admin.site.admin_view(load_from_excel),
             name="load_from_excel",
+        ),
+        path(
+            "seed-test-data/",
+            admin.site.admin_view(seed_test_data_view),
+            name="seed_test_data",
         ),
     ]
     return custom_urls + _original_get_urls()
