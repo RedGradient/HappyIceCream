@@ -3,7 +3,7 @@ import logging
 import random
 import secrets
 import string
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import pandas as pd
@@ -197,29 +197,32 @@ class WinnerService:
             for row in winners
         ]
 
-    def get_random_unused_promocode(
-        self,
-        attempts: int,
-        on_date: date,
-    ) -> Promocode | None:
-        # Кандидаты: применённые в on_date, ещё не разыгранные
-        candidates = Promocode.objects.filter(
-            is_drawn=False,
-            is_taken=True,
-            user_promocode__created_at__date=on_date,
-        )
-        lo = candidates.order_by("id").values_list("id", flat=True).first()
-        hi = candidates.order_by("-id").values_list("id", flat=True).first()
-        if lo is None:
+    @staticmethod
+    def _get_random_promocode(activated_from: datetime) -> PromoActivation | None:
+        """
+        Возвращает случайную активацию из пула кандидатов на розыгрыш.
+
+        В пул входят активации с created_at >= activated_from у пользователей,
+        которые ещё не побеждали (user.winner=False).
+
+        Args:
+            activated_from: нижняя граница пула (created_at прошлого
+                DailyDraw или первой активации).
+
+        Returns:
+            Случайная PromoActivation из пула либо None, если пул пуст.
+        """
+
+        candidates = PromoActivation.objects.filter(
+            user__winner=False,
+            created_at__gte=activated_from,
+        ).order_by("id")
+
+        count = candidates.count()
+        if count == 0:
             return None
 
-        for _ in range(attempts):
-            random_index = random.randint(lo, hi)
-            promo = candidates.filter(id__gte=random_index).order_by("id").first()
-            if promo is not None:
-                return promo
-
-        return candidates.order_by("id").first()
+        return candidates[random.randrange(count)]
 
     def _record_daily_draw(
         self,
@@ -253,63 +256,77 @@ class WinnerService:
         """
 
         today = timezone.localdate()
-        yesterday = today - timedelta(days=1)  # Ищем промокоды, примененные ВЧЕРА
         winner: PromoActivation | None = None
+
+        activated_from: datetime | None = None
+        if last_draw := DailyDraw.objects.order_by("-created_at").first():
+            activated_from = last_draw.created_at
 
         try:
             with transaction.atomic():
                 # Захватываем день (unique date) — защита от гонки Celery/admin
                 draw = DailyDraw.objects.create(date=today)
 
+                # Если розыгрыши еще не проводились:
+                # ставим границу пула кандидатов от даты самой первой активации промокода
+                if not activated_from:
+                    promo_activation = PromoActivation.objects.order_by(
+                        "created_at"
+                    ).first()
+                    if promo_activation:
+                        activated_from = promo_activation.created_at
+
+                assert activated_from is not None
+
                 logger.info(
-                    "Starting daily winner selection: draw_date=%s pool_date=%s",
+                    "Starting daily winner selection: draw_date=%s pool_date_from=%s",
                     today,
-                    yesterday,
+                    activated_from,
                 )
 
-                promocode = self.get_random_unused_promocode(
-                    attempts=GENERATE_PROMO_ATTEMPTS,
-                    on_date=yesterday,
+                activation = self._get_random_promocode(
+                    activated_from=activated_from,
                 )
-                if not promocode:
+                if not activation:
                     logger.warning(
-                        "No undrawn promo codes for pool_date=%s; attempts=%s",
-                        yesterday,
-                        GENERATE_PROMO_ATTEMPTS,
+                        "No candidate activations for pool_date_from=%s",
+                        activated_from,
                     )
                     return None
 
                 try:
                     with transaction.atomic():
-                        user_and_promo = (
+                        promo_activation = (
                             PromoActivation.objects.select_for_update().get(
-                                promocode_id=promocode.id
+                                pk=activation.pk
                             )
                         )
-                        user_and_promo.is_won = True
-                        user_and_promo.won_on = today
-                        user_and_promo.save(update_fields=["is_won", "won_on"])
+                        promo_activation.is_won = True
+                        promo_activation.won_on = today
+                        promo_activation.save(update_fields=["is_won", "won_on"])
 
-                        promocode.is_drawn = True
-                        promocode.save(update_fields=["is_drawn"])
+                        user = promo_activation.user
+                        user.winner = True
+                        user.save(update_fields=["winner"])
 
-                        draw.user = user_and_promo.user
-                        draw.promocode = promocode
+                        draw.user = promo_activation.user
+                        draw.promocode = promo_activation.promocode
                         draw.save(update_fields=["user", "promocode"])
-                        winner = user_and_promo
+                        winner = promo_activation
                 except PromoActivation.DoesNotExist:
                     logger.info(
-                        "No winner today: taken promo has no user link, "
-                        "promocode_id=%s code=%s",
-                        promocode.id,
-                        promocode.code,
+                        "No winner today: activation disappeared, "
+                        "activation_id=%s promocode_id=%s",
+                        activation.id,
+                        activation.promocode_id,
                     )
                     return None
                 except IntegrityError:
                     logger.info(
                         "No winner today: promo candidate rejected by integrity "
-                        "constraint, promocode_id=%s",
-                        promocode.id,
+                        "constraint, activation_id=%s promocode_id=%s",
+                        activation.id,
+                        activation.promocode_id,
                     )
                     return None
         except IntegrityError as exc:
@@ -358,10 +375,9 @@ class AnalyticsService:
             pool_date = today - timedelta(days=1)
             next_draw_date = today
 
-        next_draw_candidates = Promocode.objects.filter(
-            is_taken=True,
-            is_drawn=False,
-            user_promocode__created_at__date=pool_date,
+        next_draw_candidates = PromoActivation.objects.filter(
+            created_at__date=pool_date,
+            user__winner=False,
         ).count()
 
         return {

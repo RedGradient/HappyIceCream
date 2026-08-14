@@ -15,8 +15,8 @@ from promocode.services import AnalyticsService, ExcelService, WinnerService
 
 @admin.register(Promocode)
 class PromoCodeAdmin(ModelAdmin):
-    list_display = ("id", "code", "is_taken", "is_drawn", "created_at")
-    list_filter = ("is_taken", "is_drawn", "created_at")
+    list_display = ("id", "code", "is_taken", "created_at")
+    list_filter = ("is_taken", "created_at")
     search_fields = ("code",)
     ordering = ("-id",)
 

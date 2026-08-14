@@ -19,7 +19,6 @@ class Promocode(models.Model):
         validators=[PROMO_CODE_VALIDATOR],
     )
     is_taken = models.BooleanField(default=False, db_index=True)
-    is_drawn = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -29,11 +28,6 @@ class Promocode(models.Model):
                 fields=["id"],
                 name="promocode_free_id_idx",
                 condition=models.Q(is_taken=False),
-            ),
-            models.Index(
-                fields=["id"],
-                name="promocode_undrawn_taken_id_idx",
-                condition=models.Q(is_drawn=False, is_taken=True),
             ),
         ]
 
