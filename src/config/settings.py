@@ -192,6 +192,11 @@ else:
 # Используем собственную реализацию User для аутентификации
 AUTH_USER_MODEL = "user_auth.User"
 
+AUTHENTICATION_BACKENDS = [
+    "auth.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "account"
 LOGOUT_REDIRECT_URL = "login"

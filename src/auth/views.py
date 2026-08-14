@@ -1,7 +1,6 @@
 from typing import ClassVar
 
 from django.contrib.auth import login, logout, update_session_auth_hash
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.tokens import default_token_generator
 from django.shortcuts import redirect, render
 from django.utils.encoding import force_str
@@ -15,7 +14,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from auth.exceptions import IncorrectPassword
-from auth.forms import ForgotPasswordForm, ResetPasswordForm, SignUpForm
+from auth.forms import (
+    EmailAuthenticationForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
+    SignUpForm,
+)
 from auth.models import User
 from auth.serializers import AccountSerializer, ChangePasswordSerializer
 from auth.services import AuthService
@@ -41,12 +45,12 @@ def login_view(request):
         return redirect("account")
 
     if request.method == "POST":
-        form = AuthenticationForm(request, data=request.POST)
+        form = EmailAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             login(request, form.get_user())
             return redirect("account")
     else:
-        form = AuthenticationForm(request)
+        form = EmailAuthenticationForm(request)
 
     return render(request, "login.html", {"form": form})
 

@@ -2,9 +2,33 @@ from typing import ClassVar
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
+
+
+class EmailAuthenticationForm(AuthenticationForm):
+    """Вход по email: поле username формы принимает адрес почты."""
+
+    username = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(
+            attrs={
+                "autocomplete": "email",
+                "autofocus": True,
+            }
+        ),
+        error_messages={"invalid": "Неверный формат электронной почты"},
+    )
+
+    error_messages: ClassVar[dict[str, str]] = {
+        **AuthenticationForm.error_messages,
+        "invalid_login": (
+            "Неверный email или пароль. Проверьте введённые данные "
+            "или восстановите пароль."
+        ),
+    }
 
 
 class SignUpForm(forms.ModelForm):
@@ -40,6 +64,9 @@ class SignUpForm(forms.ModelForm):
             "first_name": "Имя",
             "middle_name": "Отчество",
         }
+        error_messages: ClassVar[dict[str, dict[str, str]]] = {
+            "email": {"invalid": "Неверный формат электронной почты"},
+        }
 
     def clean_password(self):
         password = self.cleaned_data["password"]
@@ -59,6 +86,7 @@ class ForgotPasswordForm(forms.Form):
     email = forms.EmailField(
         label="Email",
         widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+        error_messages={"invalid": "Неверный формат электронной почты"},
     )
 
 

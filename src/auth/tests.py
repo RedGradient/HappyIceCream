@@ -76,7 +76,7 @@ class AccountApiTests(TestCase):
     def test_change_password_keeps_session(self):
         self.client.logout()
         self.assertTrue(
-            self.client.login(username="john_doe", password="old-password-1")
+            self.client.login(username="john@example.com", password="old-password-1")
         )
         response = self.client.post(
             reverse("api_account_password"),
