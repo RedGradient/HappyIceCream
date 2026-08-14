@@ -8,6 +8,8 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
     middle_name = models.CharField(max_length=150, null=True, blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    telephone_number = models.CharField(max_length=32, null=True, blank=True)
     email_confirmed = models.BooleanField(default=False)
     notify_on_promocode = models.BooleanField(default=True)
     winner = models.BooleanField(default=False)
