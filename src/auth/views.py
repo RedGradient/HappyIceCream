@@ -8,12 +8,13 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.http import require_GET
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from auth.exceptions import IncorrectPassword, UserDoesNotExists
+from auth.exceptions import IncorrectPassword
 from auth.forms import ForgotPasswordForm, ResetPasswordForm, SignUpForm
 from auth.models import User
 from auth.serializers import AccountSerializer, ChangePasswordSerializer
@@ -71,6 +72,7 @@ class AccountView(RetrieveUpdateAPIView):
     PATCH /api/account/ — частичное обновление личных данных
     """
 
+    authentication_classes: ClassVar[list] = [SessionAuthentication]
     permission_classes: ClassVar[list] = [IsAuthenticated]
     serializer_class = AccountSerializer
     http_method_names: ClassVar[list[str]] = ["get", "put", "patch", "head", "options"]
@@ -82,6 +84,7 @@ class AccountView(RetrieveUpdateAPIView):
 class AccountPasswordView(APIView):
     """POST /api/account/password/ — смена пароля."""
 
+    authentication_classes: ClassVar[list] = [SessionAuthentication]
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     def post(self, request):
@@ -89,7 +92,7 @@ class AccountPasswordView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            AuthService().set_user_password(
+            user = AuthService().set_user_password(
                 request.user,
                 serializer.validated_data["old_password"],
                 serializer.validated_data["new_password"],
@@ -99,13 +102,8 @@ class AccountPasswordView(APIView):
                 {"detail": "Неверный текущий пароль"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except UserDoesNotExists:
-            return Response(
-                {"detail": "Пользователь не найден"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
 
-        update_session_auth_hash(request, request.user)
+        update_session_auth_hash(request, user)
         return Response({"ok": True})
 
 

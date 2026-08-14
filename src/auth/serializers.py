@@ -4,6 +4,13 @@ from rest_framework import serializers
 
 from auth.models import User
 
+_PASSWORD_ERRORS = {
+    "required": "Обязательное поле.",
+    "blank": "Обязательное поле.",
+    "null": "Обязательное поле.",
+    "min_length": "Пароль должен содержать не менее {min_length} символов.",
+}
+
 
 class AccountSerializer(serializers.ModelSerializer):
     """Личные данные текущего пользователя."""
@@ -25,16 +32,51 @@ class AccountSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("email", "email_confirmed", "full_name")
         extra_kwargs: ClassVar[dict[str, Any]] = {
-            "first_name": {"required": False, "allow_null": True, "allow_blank": True},
-            "last_name": {"required": False, "allow_null": True, "allow_blank": True},
-            "middle_name": {"required": False, "allow_null": True, "allow_blank": True},
-            "birth_date": {"required": False, "allow_null": True},
+            "first_name": {
+                "required": False,
+                "allow_null": True,
+                "allow_blank": True,
+                "error_messages": {
+                    "max_length": "Имя не должно быть длиннее {max_length} символов.",
+                },
+            },
+            "last_name": {
+                "required": False,
+                "allow_null": True,
+                "allow_blank": True,
+                "error_messages": {
+                    "max_length": "Фамилия не должна быть длиннее {max_length} символов.",
+                },
+            },
+            "middle_name": {
+                "required": False,
+                "allow_null": True,
+                "allow_blank": True,
+                "error_messages": {
+                    "max_length": "Отчество не должно быть длиннее {max_length} символов.",
+                },
+            },
+            "birth_date": {
+                "required": False,
+                "allow_null": True,
+                "error_messages": {
+                    "invalid": "Введите корректную дату рождения.",
+                },
+            },
             "telephone_number": {
                 "required": False,
                 "allow_null": True,
                 "allow_blank": True,
+                "error_messages": {
+                    "max_length": "Телефон не должен быть длиннее {max_length} символов.",
+                },
             },
-            "notify_on_promocode": {"required": False},
+            "notify_on_promocode": {
+                "required": False,
+                "error_messages": {
+                    "invalid": "Укажите корректное значение для уведомлений.",
+                },
+            },
         }
 
     def get_full_name(self, obj: User) -> str:
@@ -64,9 +106,18 @@ class AccountSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(min_length=8)
-    new_password = serializers.CharField(min_length=8)
-    new_password_confirm = serializers.CharField(min_length=8)
+    old_password = serializers.CharField(
+        min_length=8,
+        error_messages=_PASSWORD_ERRORS,
+    )
+    new_password = serializers.CharField(
+        min_length=8,
+        error_messages=_PASSWORD_ERRORS,
+    )
+    new_password_confirm = serializers.CharField(
+        min_length=8,
+        error_messages=_PASSWORD_ERRORS,
+    )
 
     def validate(self, attrs):
         if attrs["new_password"] != attrs["new_password_confirm"]:

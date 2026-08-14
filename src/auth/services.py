@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
-from auth.exceptions import IncorrectPassword, UserDoesNotExists
+from auth.exceptions import IncorrectPassword
 from auth.models import User
 from auth.tokens import email_confirm_token_generator
 
@@ -78,15 +78,12 @@ class AuthService:
         return user
 
     @staticmethod
-    def set_user_password(user: User, old_password: str, new_password: str):
-        try:
-            user = User.objects.get(pk=user.id)
-            if not user.check_password(old_password):
-                raise IncorrectPassword()
-            user.set_password(new_password)
-            user.save(update_fields=["password"])
-        except User.DoesNotExist as exc:
-            raise UserDoesNotExists() from exc
+    def set_user_password(user: User, old_password: str, new_password: str) -> User:
+        if not user.check_password(old_password):
+            raise IncorrectPassword()
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return user
 
     @staticmethod
     def reset_password(user: User, new_password: str) -> User:

@@ -73,6 +73,26 @@ class AccountApiTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("new-password-1"))
 
+    def test_change_password_keeps_session(self):
+        self.client.logout()
+        self.assertTrue(
+            self.client.login(username="john_doe", password="old-password-1")
+        )
+        response = self.client.post(
+            reverse("api_account_password"),
+            {
+                "old_password": "old-password-1",
+                "new_password": "new-password-1",
+                "new_password_confirm": "new-password-1",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        me = self.client.get(reverse("api_account"))
+        self.assertEqual(me.status_code, status.HTTP_200_OK)
+        self.assertEqual(me.data["email"], "john@example.com")
+
     def test_change_password_wrong_old(self):
         response = self.client.post(
             reverse("api_account_password"),

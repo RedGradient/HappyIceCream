@@ -3,7 +3,9 @@ from typing import ClassVar
 
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,6 +28,7 @@ def landing(request):
     return render(request, "landing.html")
 
 
+@ensure_csrf_cookie
 def account(request):
     if not request.user.is_authenticated:
         return redirect("login")
@@ -90,6 +93,7 @@ def _clear_promo_guards(request):
 
 
 class PromocodeView(APIView):
+    authentication_classes: ClassVar[list] = [SessionAuthentication]
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     def get(self, request):

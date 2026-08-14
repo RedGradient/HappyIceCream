@@ -1124,10 +1124,18 @@
     </main>
 
     <script>
+        function getCsrfToken() {
+            const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+            if (match) {
+                return decodeURIComponent(match[1]);
+            }
+            const input = document.querySelector('[name=csrfmiddlewaretoken]');
+            return input ? input.value : '';
+        }
+
         const form = document.getElementById('promo-form');
         const cells = Array.from(form.querySelectorAll('.promo-otp__cell'));
         const messageEl = document.getElementById('promo-message');
-        const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
         const codePattern = /^([A-Z]{8}|[0-9]{8})$/;
 
         function setMessage(text, { success = false } = {}) {
@@ -1279,9 +1287,10 @@
 
             const response = await fetch('{% url "promocode" %}', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
+                    'X-CSRFToken': getCsrfToken(),
                 },
                 body: JSON.stringify({ code }),
             });
@@ -1297,6 +1306,7 @@
 
             const listResponse = await fetch('{% url "promocode" %}', {
                 method: 'GET',
+                credentials: 'same-origin',
                 headers: {
                     'Accept': 'application/json',
                 },
@@ -1324,9 +1334,10 @@
                 try {
                     const response = await fetch('{% url "api_account" %}', {
                         method: 'PATCH',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken,
+                            'X-CSRFToken': getCsrfToken(),
                         },
                         body: JSON.stringify({ notify_on_promocode: enabled }),
                     });
@@ -1356,7 +1367,6 @@
         const profileForm = document.getElementById('profile-form');
         if (profileForm) {
             const profileMessageEl = document.getElementById('profile-message');
-            const profileCsrf = profileForm.querySelector('[name=csrfmiddlewaretoken]').value;
             const topbarUser = document.getElementById('topbar-user');
 
             function setProfileMessage(text, { success = false } = {}) {
@@ -1404,9 +1414,10 @@
 
                 const response = await fetch('{% url "api_account" %}', {
                     method: 'PATCH',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': profileCsrf,
+                        'X-CSRFToken': getCsrfToken(),
                     },
                     body: JSON.stringify(body),
                 });
@@ -1427,7 +1438,6 @@
         const passwordForm = document.getElementById('password-form');
         if (passwordForm) {
             const passwordMessageEl = document.getElementById('password-message');
-            const passwordCsrf = passwordForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
             function setPasswordMessage(text, { success = false } = {}) {
                 passwordMessageEl.textContent = text || '';
@@ -1464,9 +1474,10 @@
 
                 const response = await fetch('{% url "api_account_password" %}', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': passwordCsrf,
+                        'X-CSRFToken': getCsrfToken(),
                     },
                     body: JSON.stringify(body),
                 });
