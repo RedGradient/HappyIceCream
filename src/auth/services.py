@@ -52,14 +52,29 @@ class AuthService:
     def update_profile(
         user: User,
         *,
-        first_name: str = "",
-        last_name: str = "",
-        middle_name: str = "",
+        first_name: str | None = "",
+        last_name: str | None = "",
+        middle_name: str | None = "",
+        birth_date=None,
+        telephone_number: str | None = "",
+        notify_on_promocode: bool | None = None,
     ) -> User:
-        user.first_name = first_name.strip() or None
-        user.last_name = last_name.strip() or None
-        user.middle_name = middle_name.strip() or None
-        user.save(update_fields=["first_name", "last_name", "middle_name"])
+        user.first_name = (first_name or "").strip() or None
+        user.last_name = (last_name or "").strip() or None
+        user.middle_name = (middle_name or "").strip() or None
+        user.birth_date = birth_date
+        user.telephone_number = (telephone_number or "").strip() or None
+        update_fields = [
+            "first_name",
+            "last_name",
+            "middle_name",
+            "birth_date",
+            "telephone_number",
+        ]
+        if notify_on_promocode is not None:
+            user.notify_on_promocode = notify_on_promocode
+            update_fields.append("notify_on_promocode")
+        user.save(update_fields=update_fields)
         return user
 
     @staticmethod

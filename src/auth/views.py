@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.tokens import default_token_generator
@@ -6,18 +8,15 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.http import require_GET
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from auth.exceptions import IncorrectPassword, UserDoesNotExists
 from auth.forms import ForgotPasswordForm, ResetPasswordForm, SignUpForm
 from auth.models import User
-from auth.serializers import (
-    ChangePasswordSerializer,
-    NotifyOnPromocodeSerializer,
-    UpdateProfileSerializer,
-)
+from auth.serializers import AccountSerializer, ChangePasswordSerializer
 from auth.services import AuthService
 
 
@@ -66,74 +65,48 @@ def confirm_email(request, uidb64, token):
         return render(request, "confirm_email_invalid.html", status=400)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def update_notify_on_promocode(request):
-    serializer = NotifyOnPromocodeSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class AccountView(RetrieveUpdateAPIView):
+    """
+    GET /api/account/ — текущий профиль
+    PATCH /api/account/ — частичное обновление личных данных
+    """
 
-    user = AuthService().set_notify_on_promocode(
-        request.user,
-        serializer.validated_data["notify_on_promocode"],
-    )
-    return Response(
-        {"ok": True, "notify_on_promocode": user.notify_on_promocode},
-        status=status.HTTP_200_OK,
-    )
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+    serializer_class = AccountSerializer
+    http_method_names: ClassVar[list[str]] = ["get", "put", "patch", "head", "options"]
+
+    def get_object(self) -> User:
+        return self.request.user
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def update_profile(request):
-    serializer = UpdateProfileSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class AccountPasswordView(APIView):
+    """POST /api/account/password/ — смена пароля."""
 
-    user = AuthService().update_profile(
-        request.user,
-        first_name=serializer.validated_data.get("first_name", ""),
-        last_name=serializer.validated_data.get("last_name", ""),
-        middle_name=serializer.validated_data.get("middle_name", ""),
-    )
-    return Response(
-        {
-            "ok": True,
-            "first_name": user.first_name or "",
-            "last_name": user.last_name or "",
-            "middle_name": user.middle_name or "",
-            "full_name": user.get_full_name() or user.username,
-        },
-        status=status.HTTP_200_OK,
-    )
+    permission_classes: ClassVar[list] = [IsAuthenticated]
 
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def change_password(request):
-    serializer = ChangePasswordSerializer(
-        data=request.data,
-        context={"user": request.user},
-    )
-    serializer.is_valid(raise_exception=True)
+        try:
+            AuthService().set_user_password(
+                request.user,
+                serializer.validated_data["old_password"],
+                serializer.validated_data["new_password"],
+            )
+        except IncorrectPassword:
+            return Response(
+                {"detail": "Неверный текущий пароль"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except UserDoesNotExists:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-    try:
-        AuthService().set_user_password(
-            request.user,
-            serializer.validated_data["old_password"],
-            serializer.validated_data["new_password"],
-        )
-    except IncorrectPassword:
-        return Response(
-            {"detail": "Неверный текущий пароль"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    except UserDoesNotExists:
-        return Response(
-            {"detail": "Пользователь не найден"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    update_session_auth_hash(request, request.user)
-    return Response({"ok": True})
+        update_session_auth_hash(request, request.user)
+        return Response({"ok": True})
 
 
 def forgot_password(request):

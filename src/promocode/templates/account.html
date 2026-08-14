@@ -932,8 +932,8 @@
                     {% if user.is_authenticated %}
                         <div class="promo-stage__settings">
                             <div class="promo-stage__settings-row">
-                                <section class="account-panel" aria-label="ФИО">
-                                    <h2 class="account-panel__title">ФИО</h2>
+                                <section class="account-panel" aria-label="Личные данные">
+                                    <h2 class="account-panel__title">Личные данные</h2>
                                     <form class="profile-form" id="profile-form">
                                         {% csrf_token %}
                                         <div class="field">
@@ -969,7 +969,28 @@
                                                 value="{{ user.middle_name|default_if_none:'' }}"
                                             >
                                         </div>
-                                        <button type="submit">Сохранить ФИО</button>
+                                        <div class="field">
+                                            <label for="profile-birth-date">Дата рождения</label>
+                                            <input
+                                                id="profile-birth-date"
+                                                name="birth_date"
+                                                type="date"
+                                                autocomplete="bday"
+                                                value="{% if user.birth_date %}{{ user.birth_date|date:'Y-m-d' }}{% endif %}"
+                                            >
+                                        </div>
+                                        <div class="field">
+                                            <label for="profile-telephone">Телефон</label>
+                                            <input
+                                                id="profile-telephone"
+                                                name="telephone_number"
+                                                type="tel"
+                                                autocomplete="tel"
+                                                maxlength="32"
+                                                value="{{ user.telephone_number|default_if_none:'' }}"
+                                            >
+                                        </div>
+                                        <button type="submit">Сохранить</button>
                                         <p class="profile-form__message" id="profile-message" role="alert" aria-live="polite"></p>
                                     </form>
                                 </section>
@@ -1301,8 +1322,8 @@
                 notifyCheckbox.disabled = true;
 
                 try {
-                    const response = await fetch('{% url "notify_on_promocode" %}', {
-                        method: 'POST',
+                    const response = await fetch('{% url "api_account" %}', {
+                        method: 'PATCH',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken,
@@ -1345,7 +1366,7 @@
 
             function getProfileErrorMessage(payload) {
                 if (!payload || typeof payload !== 'object') {
-                    return 'Не удалось сохранить ФИО';
+                    return 'Не удалось сохранить данные';
                 }
                 if (typeof payload.detail === 'string') {
                     return payload.detail;
@@ -1353,26 +1374,36 @@
                 if (Array.isArray(payload.detail)) {
                     return payload.detail.map((item) => item?.string || item).join(' ');
                 }
-                for (const key of ['first_name', 'last_name', 'middle_name', 'non_field_errors']) {
+                for (const key of [
+                    'first_name',
+                    'last_name',
+                    'middle_name',
+                    'birth_date',
+                    'telephone_number',
+                    'non_field_errors',
+                ]) {
                     const value = payload[key];
                     if (!value) continue;
                     return Array.isArray(value) ? value[0] : value;
                 }
-                return 'Не удалось сохранить ФИО';
+                return 'Не удалось сохранить данные';
             }
 
             profileForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 setProfileMessage('');
 
+                const birthDate = profileForm.birth_date.value.trim();
                 const body = {
                     first_name: profileForm.first_name.value.trim(),
                     last_name: profileForm.last_name.value.trim(),
                     middle_name: profileForm.middle_name.value.trim(),
+                    birth_date: birthDate || null,
+                    telephone_number: profileForm.telephone_number.value.trim(),
                 };
 
-                const response = await fetch('{% url "update_profile" %}', {
-                    method: 'POST',
+                const response = await fetch('{% url "api_account" %}', {
+                    method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': profileCsrf,
@@ -1389,7 +1420,7 @@
                 if (topbarUser && payload.full_name) {
                     topbarUser.textContent = payload.full_name;
                 }
-                setProfileMessage('ФИО обновлены', { success: true });
+                setProfileMessage('Данные сохранены', { success: true });
             });
         }
 
@@ -1431,7 +1462,7 @@
                     new_password_confirm: passwordForm.new_password_confirm.value,
                 };
 
-                const response = await fetch('{% url "change_password" %}', {
+                const response = await fetch('{% url "api_account_password" %}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
