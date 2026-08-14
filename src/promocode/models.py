@@ -76,12 +76,23 @@ class PromoActivation(models.Model):
         return f"user={self.user_id} promo={self.promocode_id}"
 
 
+class Prize(models.TextChoices):
+    OZON_COUPON = "ozon_coupon", "Купон OZON"
+    AIRPODS = "airpods", "AirPods"
+
+
 class DailyDraw(models.Model):
     """Одно место ежедневного розыгрыша (до WINNERS_PER_DAY на дату)."""
 
     id = models.BigAutoField(primary_key=True)
     date = models.DateField()
     place = models.PositiveSmallIntegerField()
+    prize = models.CharField(
+        max_length=32,
+        choices=Prize.choices,
+        null=True,
+        blank=True,
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -109,9 +120,10 @@ class DailyDraw(models.Model):
         ]
 
     def __str__(self) -> str:
+        prize = self.get_prize_display() if self.prize else "—"
         if self.user_id and self.promocode_id:
             return (
-                f"{self.date} #{self.place}: "
+                f"{self.date} #{self.place} ({prize}): "
                 f"user={self.user_id} promo={self.promocode_id}"
             )
-        return f"{self.date} #{self.place}: no winner"
+        return f"{self.date} #{self.place} ({prize}): no winner"

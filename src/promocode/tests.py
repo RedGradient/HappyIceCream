@@ -12,7 +12,7 @@ from promocode.exceptions import (
     WinnerAlreadySelectedToday,
 )
 from promocode.models import DailyDraw, PromoActivation, Promocode
-from promocode.services import PromoCodeService, WinnerService
+from promocode.services import DAILY_PRIZES, PromoCodeService, WinnerService
 
 
 def _create_promocode(code: str) -> Promocode:
@@ -158,14 +158,21 @@ class WinnerServiceTests(TestCase):
             {w.user_id for w in winners},
             {user1.id, user2.id},
         )
+        self.assertEqual(
+            {w.prize for w in winners},
+            set(DAILY_PRIZES),
+        )
 
         draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
         self.assertEqual(len(draws), 2)
         self.assertEqual([d.place for d in draws], [1, 2])
         self.assertTrue(all(d.user_id for d in draws))
+        self.assertTrue(all(d.prize for d in draws))
 
         notify_mock.assert_called()
         self.assertEqual(notify_mock.call_count, 2)
+        for call in notify_mock.call_args_list:
+            self.assertIn(call.args[3], ("AirPods", "Купон OZON"))
 
     def test_random_winner_winner_already_selected_today(self):
         DailyDraw.objects.create(
@@ -289,12 +296,16 @@ class WinnerServiceTests(TestCase):
         winners = service.get_random_winner()
         self.assertEqual(len(winners), 1)
         self.assertEqual(winners[0].user_id, user.id)
+        self.assertIn(winners[0].prize, DAILY_PRIZES)
 
         draws = list(DailyDraw.objects.filter(date=today).order_by("place"))
         self.assertEqual(len(draws), 2)
         self.assertEqual(draws[0].user_id, user.id)
+        self.assertIsNotNone(draws[0].prize)
         self.assertIsNone(draws[1].user_id)
+        self.assertIsNone(draws[1].prize)
         notify_mock.assert_called_once()
+        self.assertIn(notify_mock.call_args.args[3], ("AirPods", "Купон OZON"))
 
     @patch.object(WinnerService, "_notify_winner")
     def test_clear_today_draw_allows_redo(self, notify_mock):

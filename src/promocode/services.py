@@ -19,11 +19,12 @@ from promocode.exceptions import (
     UserProfileIncomplete,
     WinnerAlreadySelectedToday,
 )
-from promocode.models import DailyDraw, PromoActivation, Promocode
+from promocode.models import DailyDraw, Prize, PromoActivation, Promocode
 
 logger = logging.getLogger(__name__)
 
 WINNERS_PER_DAY = 2
+DAILY_PRIZES = (Prize.AIRPODS, Prize.OZON_COUPON)
 
 PROMO_CODE_ALPHABET_LETTERS = string.ascii_uppercase
 PROMO_CODE_ALPHABET_NUMBERS = string.digits
@@ -202,6 +203,8 @@ class WinnerService:
             {
                 "date": row.date,
                 "place": row.place,
+                "prize": row.prize,
+                "prize_label": row.get_prize_display() if row.prize else None,
                 "name": name_or_none(row.user),
             }
             for row in winners
@@ -282,6 +285,7 @@ class WinnerService:
         activation: PromoActivation,
         draw: DailyDraw,
         today: date,
+        prize: str,
     ) -> PromoActivation | None:
         """Помечает активацию и пользователя победителем, заполняет место розыгрыша."""
         try:
@@ -299,7 +303,8 @@ class WinnerService:
 
                 draw.user = promo_activation.user
                 draw.promocode = promo_activation.promocode
-                draw.save(update_fields=["user", "promocode"])
+                draw.prize = prize
+                draw.save(update_fields=["user", "promocode", "prize"])
                 return promo_activation
         except PromoActivation.DoesNotExist:
             logger.info(
@@ -320,19 +325,22 @@ class WinnerService:
             )
             return None
 
-    def get_random_winner(self) -> list[PromoActivation]:
+    def get_random_winner(self) -> list[DailyDraw]:
         """
         Выбирает до WINNERS_PER_DAY победителей за текущий день.
+
+        Призы из DAILY_PRIZES раздаются случайно по заполненным местам
+        (AirPods и купон OZON).
 
         Raises:
             WinnerAlreadySelectedToday: розыгрыш на сегодня уже закрыт.
 
         Returns:
-            Список PromoActivation победителей (может быть пустым).
+            Список заполненных DailyDraw (может быть пустым).
         """
 
         today = timezone.localdate()
-        winners: list[PromoActivation] = []
+        winners: list[DailyDraw] = []
 
         activated_from: datetime | None = None
         if last_draw := DailyDraw.objects.order_by("-created_at").first():
@@ -340,7 +348,7 @@ class WinnerService:
 
         try:
             with transaction.atomic():
-                # Предотвращение гонки между Celery task и ручным запуском определения победителя
+                # Предотвращение гонки между Celery task и ручным запуском
                 # place=1 захватывает день; place=2..N создаём в той же транзакции
                 draws = [
                     DailyDraw.objects.create(date=today, place=place)
@@ -364,6 +372,9 @@ class WinnerService:
                     activated_from,
                 )
 
+                prize_pool = list(DAILY_PRIZES)
+                random.shuffle(prize_pool)
+
                 for draw in draws:
                     activation = self._get_random_promocode(
                         activated_from=activated_from,
@@ -376,32 +387,54 @@ class WinnerService:
                         )
                         continue
 
-                    claimed = self._claim_activation(activation, draw, today)
+                    if not prize_pool:
+                        logger.warning("No prizes left for place=%s", draw.place)
+                        continue
+
+                    prize = prize_pool.pop()
+                    claimed = self._claim_activation(activation, draw, today, prize)
                     if claimed is not None:
-                        winners.append(claimed)
+                        winners.append(draw)
         except IntegrityError as exc:
             logger.info("Daily draw already recorded: date=%s", today)
             raise WinnerAlreadySelectedToday(
                 "Победитель сегодня уже определен."
             ) from exc
 
-        for winner in winners:
-            self._notify_winner(winner.user, winner.promocode, today)
+        for draw in winners:
+            assert draw.user is not None
+            assert draw.promocode is not None
+            self._notify_winner(
+                draw.user,
+                draw.promocode,
+                today,
+                draw.get_prize_display(),
+            )
             logger.info(
-                "Winner selected: place user_id=%s promocode_id=%s code=%s won_on=%s",
-                winner.user_id,
-                winner.promocode_id,
-                winner.promocode.code,
+                "Winner selected: place=%s prize=%s user_id=%s "
+                "promocode_id=%s code=%s won_on=%s",
+                draw.place,
+                draw.prize,
+                draw.user_id,
+                draw.promocode_id,
+                draw.promocode.code,
                 today,
             )
         return winners
 
-    def _notify_winner(self, user: User, promocode: Promocode, date: date):
+    def _notify_winner(
+        self,
+        user: User,
+        promocode: Promocode,
+        date: date,
+        prize_label: str,
+    ):
         send_mail(
             subject="Вы победили — Happy Ice Cream",
             message=(
                 "Поздравляем! Вы победили в ежедневном розыгрыше Happy Ice Cream.\n\n"
                 f"Дата: {date.strftime('%d.%m.%Y')}\n"
+                f"Приз: {prize_label}\n"
                 f"Промокод: {promocode.code}\n\n"
                 "Скоро свяжемся с вами по этому email, чтобы передать приз."
             ),

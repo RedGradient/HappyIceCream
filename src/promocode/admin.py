@@ -7,7 +7,6 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 
-from auth.models import User
 from config.tasks import generate_promocodes
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm
@@ -34,21 +33,18 @@ class UserPromocodeAdmin(ModelAdmin):
 
 @admin.register(DailyDraw)
 class DailyDrawAdmin(ModelAdmin):
-    list_display = ("id", "date", "place", "user", "promocode", "created_at")
-    list_filter = ("date", "place")
+    list_display = ("id", "date", "place", "prize", "user", "promocode", "created_at")
+    list_filter = ("date", "place", "prize")
     ordering = ("-date", "place")
     readonly_fields = ("created_at",)
     raw_id_fields = ("user", "promocode")
 
 
-def _winner_success_message(activation: PromoActivation):
-    user = (
-        User.objects.filter(pk=activation.user_id).first()
-        if activation.user_id
-        else None
-    )
-    promocode = activation.promocode
-    if user:
+def _winner_success_message(draw: DailyDraw):
+    user = draw.user
+    promocode = draw.promocode
+    prize_label = draw.get_prize_display() if draw.prize else "—"
+    if user and promocode:
         fio = (
             " ".join(
                 part
@@ -63,22 +59,18 @@ def _winner_success_message(activation: PromoActivation):
             args=[promocode.pk],
         )
         return format_html(
-            '<a href="{}">{}</a>, email: {}, промокод: <a href="{}">«{}»</a>',
+            '<a href="{}">{}</a>, email: {}, приз: {}, промокод: <a href="{}">«{}»</a>',
             user_url,
             fio,
             user.email,
+            prize_label,
             promo_url,
             promocode.code,
         )
-    promo_url = reverse(
-        "admin:promocode_promocode_change",
-        args=[promocode.pk],
-    )
     return format_html(
-        'user_id={}, промокод: <a href="{}">«{}»</a>',
-        activation.user_id,
-        promo_url,
-        promocode.code,
+        "user_id={}, приз: {}",
+        draw.user_id,
+        prize_label,
     )
 
 

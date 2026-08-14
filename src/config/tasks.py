@@ -19,7 +19,15 @@ def select_random_winner():
             return
         logger.info(
             "Celery select_random_winner finished: winners=%s",
-            [{"user_id": w.user_id, "promocode_id": w.promocode_id} for w in winners],
+            [
+                {
+                    "user_id": w.user_id,
+                    "promocode_id": w.promocode_id,
+                    "prize": w.prize,
+                    "place": w.place,
+                }
+                for w in winners
+            ],
         )
     except WinnerAlreadySelectedToday:
         logger.info(

@@ -224,7 +224,7 @@
 
         .winners__row {
             display: grid;
-            grid-template-columns: 3.1rem 1fr;
+            grid-template-columns: 3.1rem 1fr auto;
             gap: 0.65rem;
             align-items: baseline;
             font-size: 0.92rem;
@@ -240,6 +240,13 @@
             font-weight: 600;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .winners__prize {
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.82rem;
+            font-weight: 600;
             white-space: nowrap;
         }
 
@@ -423,8 +430,14 @@
                                 <span class="winners__date">{{ winner.date|date:"d.m" }}</span>
                                 {% if winner.name %}
                                     <span class="winners__name">{{ winner.name }}</span>
+                                    {% if winner.prize_label %}
+                                        <span class="winners__prize">{{ winner.prize_label }}</span>
+                                    {% else %}
+                                        <span class="winners__prize"></span>
+                                    {% endif %}
                                 {% else %}
                                     <span class="winners__none">Победителя нет</span>
+                                    <span class="winners__prize"></span>
                                 {% endif %}
                             </li>
                         {% endfor %}

@@ -263,7 +263,8 @@
             {% if draw.user and draw.promocode %}
                 {% with u=draw.user %}
                 <p>
-                    Победитель {{ draw.place }}:
+                    Победитель {{ draw.place }}
+                    {% if draw.prize %}({{ draw.get_prize_display }}){% endif %}:
                     <a href="{% url 'admin:user_auth_user_change' u.pk %}">
                         {% if u.last_name or u.first_name or u.middle_name %}
                             {{ u.last_name }} {{ u.first_name }} {{ u.middle_name }}
