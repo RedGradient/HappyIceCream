@@ -22,13 +22,11 @@ from config.tasks import (
 from promocode.exceptions import WinnerAlreadySelectedToday
 from promocode.forms import ExcelFileForm, GeneratePromocodesForm, SeedTestDataForm
 from promocode.models import DailyDraw, PromoActivation, PromoAttempt, Promocode
-from promocode.services import (
-    AnalyticsService,
-    CabinetService,
-    ExcelService,
-    TestDataService,
-    WinnerService,
-)
+from promocode.services.analytics import AnalyticsService
+from promocode.services.cabinet import CabinetService
+from promocode.services.excel import ExcelService
+from promocode.services.testdata import TestDataService
+from promocode.services.winner import WinnerService
 
 DRAW_POOL_PAGE_SIZE = 50
 

@@ -17,7 +17,9 @@ from promocode.exceptions import (
 )
 from promocode.models import PromoAttempt, PromoAttemptReason
 from promocode.serializers import PromoCodeSerializer
-from promocode.services import CabinetService, PromoCodeService, WinnerService
+from promocode.services.cabinet import CabinetService
+from promocode.services.promocode import PromoCodeService
+from promocode.services.winner import WinnerService
 
 MAX_PROMO_ATTEMPTS = 3
 ATTEMPT_WINDOW_SECONDS = 60

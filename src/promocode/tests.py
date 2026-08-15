@@ -19,13 +19,10 @@ from promocode.models import (
     PromoAttemptReason,
     Promocode,
 )
-from promocode.services import (
-    DAILY_PRIZES,
-    AnalyticsService,
-    CabinetService,
-    PromoCodeService,
-    WinnerService,
-)
+from promocode.services.analytics import AnalyticsService
+from promocode.services.cabinet import CabinetService
+from promocode.services.promocode import PromoCodeService
+from promocode.services.winner import DAILY_PRIZES, WinnerService
 
 
 def _create_promocode(code: str) -> Promocode:
@@ -351,7 +348,7 @@ class WinnerServiceTests(TestCase):
         notify_mock.assert_called_once()
         self.assertIn(notify_mock.call_args.args[3], ("AirPods", "Купон OZON"))
 
-    @patch("promocode.services.send_mail", side_effect=OSError("smtp down"))
+    @patch("promocode.services.winner.send_mail", side_effect=OSError("smtp down"))
     def test_get_random_winner_succeeds_if_email_fails(self, send_mail_mock):
         service = WinnerService()
         today = timezone.localdate()
@@ -514,7 +511,7 @@ class DrawPoolTests(TestCase):
 
 class TestDataSeedTests(TestCase):
     def test_seed_participants_creates_full_chain(self):
-        from promocode.services import TestDataService
+        from promocode.services.testdata import TestDataService
 
         result = TestDataService.seed_participants(3)
         self.assertEqual(result["users"], 3)

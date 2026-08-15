@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from promocode.exceptions import WinnerAlreadySelectedToday
-from promocode.services import PromoCodeService, WinnerService
+from promocode.services.promocode import PromoCodeService
+from promocode.services.winner import WinnerService
 
 logger = logging.getLogger(__name__)
 
