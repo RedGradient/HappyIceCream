@@ -156,6 +156,14 @@ celery -A config beat -l info
 
 Статика приложений лежит в `*/static/`. `collectstatic` собирает файлы в `src/staticfiles/` (в git не коммитится); в Docker их отдаёт WhiteNoise.
 
+## Деплой (GitHub Actions → VPS)
+
+При push в `master` Actions по SSH делает на сервере `git pull` (reset to `origin/master`) и `docker compose up -d --build`.
+
+На VPS один раз: клон репозитория, `.env`, ручной `docker compose up -d --build`, SSH-ключ для Actions в `authorized_keys`, deploy key для `git fetch` с GitHub.
+
+Secrets репозитория: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_APP_PATH` (каталог приложения, например `/opt/happyicecream`), опционально `VPS_PORT` (по умолчанию `22`).
+
 ## Разработка
 
 ```bash
