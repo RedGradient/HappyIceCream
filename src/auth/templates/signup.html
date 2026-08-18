@@ -117,6 +117,59 @@
             border-color: var(--accent);
         }
 
+        .password-field {
+            position: relative;
+        }
+
+        .password-field input {
+            padding-right: 3rem;
+        }
+
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 0.35rem;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            box-shadow: none;
+        }
+
+        .password-toggle:hover,
+        .password-toggle:focus-visible {
+            color: var(--ink);
+            background: rgba(20, 32, 40, 0.06);
+            outline: none;
+        }
+
+        .password-toggle svg {
+            width: 1.15rem;
+            height: 1.15rem;
+            display: block;
+        }
+
+        .password-toggle .icon-hide {
+            display: none;
+        }
+
+        .password-toggle.is-visible .icon-show {
+            display: none;
+        }
+
+        .password-toggle.is-visible .icon-hide {
+            display: block;
+        }
+
         .consent {
             display: flex;
             align-items: flex-start;
@@ -151,7 +204,7 @@
             margin-bottom: 0.25rem;
         }
 
-        .signup-form button {
+        .signup-form > button[type="submit"] {
             margin-top: 0.35rem;
             height: 3.25rem;
             border: 0;
@@ -166,15 +219,15 @@
             transition: background 160ms ease;
         }
 
-        .signup-form button:hover {
+        .signup-form > button[type="submit"]:hover {
             background: var(--accent-deep);
         }
 
-        .signup-form button:active {
+        .signup-form > button[type="submit"]:active {
             transform: translateY(0);
         }
 
-        .signup-form button:disabled {
+        .signup-form > button[type="submit"]:disabled {
             opacity: 0.55;
             cursor: not-allowed;
             pointer-events: none;
@@ -271,7 +324,26 @@
 
                 <div class="field">
                     <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
-                    {{ form.password }}
+                    <div class="password-field">
+                        {{ form.password }}
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            aria-label="Показать пароль"
+                            aria-pressed="false"
+                        >
+                            <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 3l18 18"/>
+                                <path d="M10.6 10.6a2 3 0 0 0 2.8 2.8"/>
+                                <path d="M9.9 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-3.2 4.4"/>
+                                <path d="M6.1 6.1C4 7.8 2.5 10.2 2 12c0 0 3.5 7 10 7a10.3 10.3 0 0 0 4.3-.9"/>
+                            </svg>
+                        </button>
+                    </div>
                     {{ form.password.errors }}
                     <ul class="password-rules" id="password-rules" aria-live="polite">
                         <li class="password-rules__item" data-rule="length">
@@ -295,7 +367,26 @@
 
                 <div class="field">
                     <label for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
-                    {{ form.password_confirm }}
+                    <div class="password-field">
+                        {{ form.password_confirm }}
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            aria-label="Показать пароль"
+                            aria-pressed="false"
+                        >
+                            <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 3l18 18"/>
+                                <path d="M10.6 10.6a2 3 0 0 0 2.8 2.8"/>
+                                <path d="M9.9 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-3.2 4.4"/>
+                                <path d="M6.1 6.1C4 7.8 2.5 10.2 2 12c0 0 3.5 7 10 7a10.3 10.3 0 0 0 4.3-.9"/>
+                            </svg>
+                        </button>
+                    </div>
                     {{ form.password_confirm.errors }}
                 </div>
 
@@ -478,6 +569,23 @@
             });
 
             refreshPasswordIndicator();
+
+            form.querySelectorAll('.password-toggle').forEach((toggle) => {
+                const input = toggle.closest('.password-field')?.querySelector('input');
+                if (!input) {
+                    return;
+                }
+                toggle.addEventListener('click', () => {
+                    const showing = input.type === 'text';
+                    input.type = showing ? 'password' : 'text';
+                    toggle.classList.toggle('is-visible', !showing);
+                    toggle.setAttribute('aria-pressed', String(!showing));
+                    toggle.setAttribute(
+                        'aria-label',
+                        showing ? 'Показать пароль' : 'Скрыть пароль'
+                    );
+                });
+            });
         })();
     </script>
 </body>
