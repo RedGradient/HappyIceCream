@@ -19,7 +19,7 @@ from promocode.models import (
     PromoAttemptReason,
     Promocode,
 )
-from promocode.services.analytics import AnalyticsService
+from promocode.services.analytics import METRIC_SPECS, AnalyticsService
 from promocode.services.cabinet import CabinetService
 from promocode.services.promocode import PromoCodeService
 from promocode.services.winner import DAILY_PRIZES, WinnerService
@@ -720,3 +720,25 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(stats_after_draw["days_without_full_draw"], 1)
         # Активация до розыгрыша не входит в новый пул
         self.assertEqual(stats_after_draw["pool_activations"], 0)
+
+    def test_metric_specs_cover_summary_keys(self):
+        stats = AnalyticsService.summary()
+        spec_keys = [spec.key for spec in METRIC_SPECS]
+        self.assertEqual(set(spec_keys), set(stats.keys()))
+        self.assertEqual(len(spec_keys), len(set(spec_keys)))
+
+        sections = AnalyticsService.summary_sections(stats)
+        self.assertEqual(
+            [section["title"] for section in sections],
+            [
+                "Пользователи",
+                "Промокоды",
+                "Ближайший розыгрыш",
+                "Итоги розыгрышей",
+                "Ошибки ввода промокода",
+            ],
+        )
+        flat_labels = [
+            item["label"] for section in sections for item in section["items"]
+        ]
+        self.assertEqual(flat_labels, [spec.label for spec in METRIC_SPECS])

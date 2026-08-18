@@ -1,6 +1,8 @@
 import io
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from enum import Enum
 from typing import Any
 
 import pandas as pd
@@ -19,6 +21,145 @@ from promocode.models import (
 from promocode.services.winner import WINNERS_PER_DAY, WinnerService
 
 logger = logging.getLogger(__name__)
+
+
+class MetricFormat(str, Enum):
+    NUMBER = "number"
+    DATETIME = "datetime"
+    DATE = "date"
+
+
+@dataclass(frozen=True, slots=True)
+class MetricSpec:
+    key: str
+    label: str
+    section: str
+    fmt: MetricFormat = MetricFormat.NUMBER
+
+
+# Единый каталог метрик: UI и Excel берут подписи/секции отсюда.
+METRIC_SPECS: tuple[MetricSpec, ...] = (
+    MetricSpec("users_total", "Зарегистрировались", "Пользователи"),
+    MetricSpec("users_email_confirmed", "Подтвердили email", "Пользователи"),
+    MetricSpec(
+        "users_profile_complete",
+        "Заполнили ФИО, телефон, дату рождения и email",
+        "Пользователи",
+    ),
+    MetricSpec(
+        "unique_participants",
+        "Ввели хотя бы один промокод",
+        "Пользователи",
+    ),
+    MetricSpec(
+        "users_winners",
+        "Уже выиграли (больше не участвуют)",
+        "Пользователи",
+    ),
+    MetricSpec(
+        "activations_total",
+        "Промокодов активировано всего",
+        "Промокоды",
+    ),
+    MetricSpec(
+        "activations_today",
+        "Промокодов активировано сегодня",
+        "Промокоды",
+    ),
+    MetricSpec(
+        "activations_7d",
+        "Промокодов активировано за 7 дней",
+        "Промокоды",
+    ),
+    MetricSpec("free_promocodes", "Промокодов ещё не введено", "Промокоды"),
+    MetricSpec(
+        "pool_activations",
+        "Промокодов участвует в розыгрыше",
+        "Ближайший розыгрыш",
+    ),
+    MetricSpec(
+        "pool_unique_users",
+        "Людей участвует в розыгрыше",
+        "Ближайший розыгрыш",
+    ),
+    MetricSpec(
+        "pool_activated_from",
+        "Учитываются промокоды с",
+        "Ближайший розыгрыш",
+        MetricFormat.DATETIME,
+    ),
+    MetricSpec(
+        "next_draw_at",
+        "Когда следующий розыгрыш",
+        "Ближайший розыгрыш",
+        MetricFormat.DATETIME,
+    ),
+    MetricSpec(
+        "winners_total",
+        "Сколько раз выбрали победителя",
+        "Итоги розыгрышей",
+    ),
+    MetricSpec(
+        "winners_today",
+        "Победителей выбрано сегодня",
+        "Итоги розыгрышей",
+    ),
+    MetricSpec("winners_airpods", "Выдали AirPods", "Итоги розыгрышей"),
+    MetricSpec("winners_ozon", "Выдали купон OZON", "Итоги розыгрышей"),
+    MetricSpec(
+        "days_without_full_draw",
+        "Дней, когда выбрали меньше 2 победителей",
+        "Итоги розыгрышей",
+    ),
+    MetricSpec(
+        "attempts_today",
+        "Ошибок ввода сегодня",
+        "Ошибки ввода промокода",
+    ),
+    MetricSpec(
+        "attempts_today_not_found",
+        "Сегодня ввели несуществующий код",
+        "Ошибки ввода промокода",
+    ),
+    MetricSpec(
+        "attempts_today_already_used",
+        "Сегодня ввели уже использованный код",
+        "Ошибки ввода промокода",
+    ),
+    MetricSpec(
+        "attempts_7d",
+        "Ошибок ввода за 7 дней",
+        "Ошибки ввода промокода",
+    ),
+    MetricSpec(
+        "attempts_7d_not_found",
+        "За 7 дней: несуществующий код",
+        "Ошибки ввода промокода",
+    ),
+    MetricSpec(
+        "attempts_7d_already_used",
+        "За 7 дней: уже использованный код",
+        "Ошибки ввода промокода",
+    ),
+)
+
+
+def format_metric_value(
+    value: Any,
+    fmt: MetricFormat = MetricFormat.NUMBER,
+) -> str:
+    if value is None:
+        return "—"
+    if fmt is MetricFormat.DATETIME:
+        if isinstance(value, datetime):
+            return timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
+        if isinstance(value, date):
+            return value.strftime("%d.%m.%Y")
+    if fmt is MetricFormat.DATE and isinstance(value, date | datetime):
+        if isinstance(value, datetime):
+            value = timezone.localtime(value).date()
+        return value.strftime("%d.%m.%Y")
+    return str(value)
 
 
 class AnalyticsService:
@@ -100,44 +241,37 @@ class AnalyticsService:
         }
 
     @staticmethod
+    def summary_sections(
+        metrics: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Секции для UI/Excel: title + items (label, value, compact)."""
+        stats = metrics if metrics is not None else AnalyticsService.summary()
+        sections: list[dict[str, Any]] = []
+        current: dict[str, Any] | None = None
+
+        for spec in METRIC_SPECS:
+            if current is None or current["title"] != spec.section:
+                current = {"title": spec.section, "items": []}
+                sections.append(current)
+            raw = stats[spec.key]
+            current["items"].append(
+                {
+                    "key": spec.key,
+                    "label": spec.label,
+                    "raw": raw,
+                    "value": format_metric_value(raw, spec.fmt),
+                    "compact": spec.fmt is not MetricFormat.NUMBER,
+                }
+            )
+        return sections
+
+    @staticmethod
     def export_analytics_as_excel() -> tuple[bytes, str]:
         metrics = AnalyticsService.summary()
-        labels = {
-            "users_total": "Зарегистрировались",
-            "users_email_confirmed": "Подтвердили email",
-            "users_profile_complete": ("Заполнили ФИО, телефон, дату рождения и email"),
-            "unique_participants": "Ввели хотя бы один промокод",
-            "users_winners": "Уже выиграли (больше не участвуют)",
-            "activations_total": "Промокодов активировано всего",
-            "activations_today": "Промокодов активировано сегодня",
-            "activations_7d": "Промокодов активировано за 7 дней",
-            "free_promocodes": "Промокодов ещё не введено",
-            "pool_activations": "Промокодов участвует в розыгрыше",
-            "pool_unique_users": "Людей участвует в розыгрыше",
-            "pool_activated_from": "Учитываются промокоды с",
-            "next_draw_at": "Когда следующий розыгрыш",
-            "winners_total": "Сколько раз выбрали победителя",
-            "winners_today": "Победителей выбрано сегодня",
-            "winners_airpods": "Выдали AirPods",
-            "winners_ozon": "Выдали купон OZON",
-            "days_without_full_draw": ("Дней, когда выбрали меньше 2 победителей"),
-            "attempts_today": "Ошибок ввода сегодня",
-            "attempts_today_not_found": "Сегодня ввели несуществующий код",
-            "attempts_today_already_used": ("Сегодня ввели уже использованный код"),
-            "attempts_7d": "Ошибок ввода за 7 дней",
-            "attempts_7d_not_found": "За 7 дней: несуществующий код",
-            "attempts_7d_already_used": "За 7 дней: уже использованный код",
-        }
-        rows = []
-        for key, label in labels.items():
-            value = metrics[key]
-            if value is None:
-                value = "—"
-            elif isinstance(value, datetime):
-                value = timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
-            elif isinstance(value, date):
-                value = value.strftime("%d.%m.%Y")
-            rows.append((label, value))
+        rows = [
+            (spec.label, format_metric_value(metrics[spec.key], spec.fmt))
+            for spec in METRIC_SPECS
+        ]
 
         df = pd.DataFrame(rows, columns=["Показатель", "Значение"])
 

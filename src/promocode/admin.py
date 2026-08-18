@@ -290,6 +290,7 @@ def metrics_view(request: HttpRequest) -> HttpResponse:
         **admin.site.each_context(request),
         "title": "Метрики",
         "stats": stats,
+        "sections": AnalyticsService.summary_sections(stats),
     }
     return render(request, "admin/metrics.html", context)
 
