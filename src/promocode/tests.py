@@ -1,8 +1,11 @@
+import io
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 from django.test import TestCase
 from django.utils import timezone
+from openpyxl import load_workbook
 
 from auth.models import User
 from promocode.exceptions import (
@@ -19,7 +22,12 @@ from promocode.models import (
     PromoAttemptReason,
     Promocode,
 )
-from promocode.services.analytics import METRIC_SPECS, AnalyticsService
+from promocode.services.analytics import (
+    DAILY_SERIES_COLUMNS,
+    DAILY_SERIES_DAYS,
+    METRIC_SPECS,
+    AnalyticsService,
+)
 from promocode.services.cabinet import CabinetService
 from promocode.services.promocode import PromoCodeService
 from promocode.services.winner import DAILY_PRIZES, WinnerService
@@ -742,3 +750,53 @@ class AnalyticsServiceTests(TestCase):
             item["label"] for section in sections for item in section["items"]
         ]
         self.assertEqual(flat_labels, [spec.label for spec in METRIC_SPECS])
+
+    def test_daily_series_fills_window_and_excel_sheets(self):
+        today = timezone.localdate()
+        user = _create_user(username="daily", email="daily@example.com")
+        promo = _create_promocode("DAILY001")
+        promo.is_taken = True
+        promo.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(user=user, promocode=promo)
+        PromoAttempt.objects.create(
+            user=user,
+            attempted_code="WRONGCOD",
+            reason=PromoAttemptReason.NOT_FOUND,
+            ip_address="127.0.0.1",
+            user_agent="test",
+        )
+        DailyDraw.objects.create(
+            date=today,
+            place=1,
+            prize=Prize.AIRPODS,
+            user=user,
+            promocode=promo,
+        )
+
+        series = AnalyticsService.daily_series(days=7)
+        self.assertEqual(len(series), 7)
+        self.assertEqual(series[0]["date"], today - timedelta(days=6))
+        self.assertEqual(series[-1]["date"], today)
+        self.assertEqual(series[-1]["activations"], 1)
+        self.assertEqual(series[-1]["attempts"], 1)
+        self.assertEqual(series[-1]["attempts_not_found"], 1)
+        self.assertEqual(series[-1]["winners"], 1)
+        self.assertEqual(series[-1]["draw_full"], 0)
+
+        content, filename = AnalyticsService.export_analytics_as_excel()
+        self.assertTrue(filename.startswith("metrics-"))
+        self.assertTrue(filename.endswith(".xlsx"))
+
+        sheets = pd.read_excel(io.BytesIO(content), sheet_name=None)
+        self.assertEqual(set(sheets), {"Сводка", "По дням"})
+        self.assertEqual(list(sheets["Сводка"].columns), ["Показатель", "Значение"])
+        self.assertEqual(len(sheets["По дням"]), DAILY_SERIES_DAYS)
+        self.assertEqual(
+            list(sheets["По дням"].columns),
+            list(DAILY_SERIES_COLUMNS.values()),
+        )
+
+        workbook = load_workbook(io.BytesIO(content))
+        summary_sheet = workbook["Сводка"]
+        self.assertGreater(summary_sheet.column_dimensions["A"].width, 10)
+        self.assertGreaterEqual(summary_sheet.column_dimensions["B"].width, 10)

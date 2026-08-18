@@ -1,13 +1,16 @@
 import io
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from typing import Any
 
 import pandas as pd
 from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 
 from auth.models import User
 from promocode.models import (
@@ -21,6 +24,19 @@ from promocode.models import (
 from promocode.services.winner import WINNERS_PER_DAY, WinnerService
 
 logger = logging.getLogger(__name__)
+
+DAILY_SERIES_DAYS = 30
+
+DAILY_SERIES_COLUMNS: dict[str, str] = {
+    "date": "Дата",
+    "registrations": "Регистрации",
+    "activations": "Активации",
+    "attempts": "Ошибки ввода",
+    "attempts_not_found": "Несуществующий код",
+    "attempts_already_used": "Уже использованный код",
+    "winners": "Победителей",
+    "draw_full": "Полный розыгрыш",
+}
 
 
 class MetricFormat(str, Enum):
@@ -162,6 +178,24 @@ def format_metric_value(
     return str(value)
 
 
+def autofit_worksheet_columns(
+    worksheet: Worksheet,
+    *,
+    min_width: float = 10,
+    max_width: float = 60,
+    padding: float = 2,
+) -> None:
+    """Подгоняет ширину колонок по содержимому текста."""
+    for col_idx, column_cells in enumerate(worksheet.columns, start=1):
+        max_len = 0
+        for cell in column_cells:
+            if cell.value is None:
+                continue
+            max_len = max(max_len, len(str(cell.value)))
+        width = min(max_width, max(min_width, max_len + padding))
+        worksheet.column_dimensions[get_column_letter(col_idx)].width = width
+
+
 class AnalyticsService:
     @staticmethod
     def summary() -> dict[str, Any]:
@@ -266,16 +300,99 @@ class AnalyticsService:
         return sections
 
     @staticmethod
+    def daily_series(days: int = DAILY_SERIES_DAYS) -> list[dict[str, Any]]:
+        """Посуточный ряд за последние `days` дней (включая сегодня)."""
+        if days < 1:
+            raise ValueError("days must be >= 1")
+
+        today = timezone.localdate()
+        start = today - timedelta(days=days - 1)
+        tz = timezone.get_current_timezone()
+        start_dt = timezone.make_aware(datetime.combine(start, time.min), tz)
+
+        def counts_by_day(queryset) -> dict[date, int]:
+            rows = (
+                queryset.filter(created_at__gte=start_dt)
+                .annotate(day=TruncDate("created_at", tzinfo=tz))
+                .values("day")
+                .annotate(c=Count("id"))
+            )
+            return {row["day"]: row["c"] for row in rows if row["day"] is not None}
+
+        registrations = counts_by_day(User.objects.all())
+        activations = counts_by_day(PromoActivation.objects.all())
+
+        attempt_rows = (
+            PromoAttempt.objects.filter(created_at__gte=start_dt)
+            .annotate(day=TruncDate("created_at", tzinfo=tz))
+            .values("day", "reason")
+            .annotate(c=Count("id"))
+        )
+        attempts_total: dict[date, int] = {}
+        attempts_not_found: dict[date, int] = {}
+        attempts_already_used: dict[date, int] = {}
+        for row in attempt_rows:
+            day = row["day"]
+            if day is None:
+                continue
+            attempts_total[day] = attempts_total.get(day, 0) + row["c"]
+            if row["reason"] == PromoAttemptReason.NOT_FOUND:
+                attempts_not_found[day] = row["c"]
+            elif row["reason"] == PromoAttemptReason.ALREADY_USED:
+                attempts_already_used[day] = row["c"]
+
+        winners_by_day = {
+            row["date"]: row["c"]
+            for row in (
+                DailyDraw.objects.filter(
+                    date__gte=start,
+                    date__lte=today,
+                    user__isnull=False,
+                )
+                .values("date")
+                .annotate(c=Count("id"))
+            )
+        }
+
+        series: list[dict[str, Any]] = []
+        cursor = start
+        while cursor <= today:
+            winners = winners_by_day.get(cursor, 0)
+            series.append(
+                {
+                    "date": cursor,
+                    "registrations": registrations.get(cursor, 0),
+                    "activations": activations.get(cursor, 0),
+                    "attempts": attempts_total.get(cursor, 0),
+                    "attempts_not_found": attempts_not_found.get(cursor, 0),
+                    "attempts_already_used": attempts_already_used.get(cursor, 0),
+                    "winners": winners,
+                    "draw_full": int(winners >= WINNERS_PER_DAY),
+                }
+            )
+            cursor += timedelta(days=1)
+        return series
+
+    @staticmethod
     def export_analytics_as_excel() -> tuple[bytes, str]:
         metrics = AnalyticsService.summary()
-        rows = [
-            (spec.label, format_metric_value(metrics[spec.key], spec.fmt))
-            for spec in METRIC_SPECS
-        ]
-
-        df = pd.DataFrame(rows, columns=["Показатель", "Значение"])
+        summary_df = pd.DataFrame(
+            [
+                (spec.label, format_metric_value(metrics[spec.key], spec.fmt))
+                for spec in METRIC_SPECS
+            ],
+            columns=["Показатель", "Значение"],
+        )
+        daily_df = pd.DataFrame(AnalyticsService.daily_series()).rename(
+            columns=DAILY_SERIES_COLUMNS
+        )
 
         buffer = io.BytesIO()
-        df.to_excel(buffer, index=False)
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            summary_df.to_excel(writer, sheet_name="Сводка", index=False)
+            daily_df.to_excel(writer, sheet_name="По дням", index=False)
+            for sheet in writer.sheets.values():
+                autofit_worksheet_columns(sheet)
+
         filename = f"metrics-{timezone.localtime().strftime('%Y-%m-%d_%H-%M')}.xlsx"
         return buffer.getvalue(), filename
