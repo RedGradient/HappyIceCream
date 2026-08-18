@@ -412,7 +412,7 @@
                 </div>
                 {{ form.consent.errors }}
 
-                <button type="submit" id="signup-submit" disabled>Зарегистрироваться</button>
+                <button type="submit" id="signup-submit">Зарегистрироваться</button>
             </form>
         </div>
     </main>
@@ -424,8 +424,6 @@
             }
 
             const passwordInput = form.querySelector('#{{ form.password.id_for_label }}');
-            const passwordConfirmInput = form.querySelector('#{{ form.password_confirm.id_for_label }}');
-            const submitButton = document.getElementById('signup-submit');
             const passwordRulesEl = document.getElementById('password-rules');
             const attrFields = [
                 form.querySelector('#{{ form.username.id_for_label }}'),
@@ -533,30 +531,10 @@
                 });
             }
 
-            function passwordMeetsRequirements(password) {
-                return Object.values(evaluatePassword(password)).every(Boolean);
-            }
-
-            function updateSubmitState() {
-                if (!submitButton) {
-                    return;
-                }
-                const password = passwordInput?.value || '';
-                const confirm = passwordConfirmInput?.value || '';
-                const valid = Boolean(
-                    password
-                    && confirm
-                    && password === confirm
-                    && passwordMeetsRequirements(password)
-                );
-                submitButton.disabled = !valid;
-            }
-
             async function refreshPasswordIndicator() {
                 await ensureCommonPasswords();
                 const password = passwordInput?.value || '';
                 renderPasswordRules(evaluatePassword(password), Boolean(password));
-                updateSubmitState();
             }
 
             if (passwordInput) {
@@ -564,24 +542,12 @@
                     refreshPasswordIndicator();
                 });
             }
-            if (passwordConfirmInput) {
-                passwordConfirmInput.addEventListener('input', updateSubmitState);
-            }
             attrFields.forEach((field) => {
                 field.addEventListener('input', () => {
                     if (passwordInput?.value) {
                         refreshPasswordIndicator();
                     }
                 });
-            });
-
-            form.addEventListener('submit', (event) => {
-                const password = passwordInput?.value || '';
-                const confirm = passwordConfirmInput?.value || '';
-                if (!passwordMeetsRequirements(password) || password !== confirm) {
-                    event.preventDefault();
-                    refreshPasswordIndicator();
-                }
             });
 
             refreshPasswordIndicator();

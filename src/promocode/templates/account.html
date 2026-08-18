@@ -1800,7 +1800,6 @@
         if (passwordForm) {
             const passwordMessageEl = document.getElementById('password-message');
             const newPasswordInput = document.getElementById('new-password');
-            const newPasswordConfirmInput = document.getElementById('new-password-confirm');
             const passwordSubmit = document.getElementById('password-submit')
                 || passwordForm.querySelector('button[type="submit"]');
             const passwordRulesEl = document.getElementById('password-rules');
@@ -1937,40 +1936,16 @@
                 });
             }
 
-            function passwordMeetsRequirements(password) {
-                const results = evaluatePassword(password);
-                return Object.values(results).every(Boolean);
-            }
-
-            function updatePasswordSubmitState() {
-                if (!passwordSubmit || passwordSubmit.classList.contains('is-loading')) {
-                    return;
-                }
-                const password = newPasswordInput?.value || '';
-                const confirm = newPasswordConfirmInput?.value || '';
-                const oldPassword = passwordForm.old_password?.value || '';
-                const valid = Boolean(
-                    oldPassword
-                    && password
-                    && confirm
-                    && password === confirm
-                    && passwordMeetsRequirements(password)
-                );
-                passwordSubmit.disabled = !valid;
-            }
-
             async function refreshPasswordIndicator() {
                 const password = newPasswordInput?.value || '';
                 const visible = password.length > 0;
                 setPasswordRulesVisible(visible);
                 if (!visible) {
-                    updatePasswordSubmitState();
                     return;
                 }
                 await ensureCommonPasswords();
                 const results = evaluatePassword(password);
                 renderPasswordRules(results);
-                updatePasswordSubmitState();
             }
 
             if (newPasswordInput) {
@@ -1983,13 +1958,6 @@
                     }
                 });
             }
-            if (newPasswordConfirmInput) {
-                newPasswordConfirmInput.addEventListener('input', updatePasswordSubmitState);
-            }
-            if (passwordForm.old_password) {
-                passwordForm.old_password.addEventListener('input', updatePasswordSubmitState);
-            }
-            updatePasswordSubmitState();
 
             passwordForm.querySelectorAll('.password-toggle').forEach((toggle) => {
                 const input = toggle.closest('.password-field')?.querySelector('input');
@@ -2018,12 +1986,6 @@
                     new_password_confirm: passwordForm.new_password_confirm.value,
                 };
 
-                if (!passwordMeetsRequirements(body.new_password) || body.new_password !== body.new_password_confirm) {
-                    await refreshPasswordIndicator();
-                    setPasswordMessage('Новый пароль не соответствует требованиям');
-                    return;
-                }
-
                 setButtonLoading(passwordSubmit, true);
 
                 try {
@@ -2039,6 +2001,7 @@
 
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok) {
+                        await refreshPasswordIndicator();
                         setPasswordMessage(getPasswordErrorMessage(payload));
                         return;
                     }
@@ -2054,11 +2017,9 @@
                         toggle.setAttribute('aria-label', 'Показать пароль');
                     });
                     setPasswordRulesVisible(false);
-                    updatePasswordSubmitState();
                     setPasswordMessage('Пароль обновлён', { success: true });
                 } finally {
                     setButtonLoading(passwordSubmit, false);
-                    updatePasswordSubmitState();
                 }
             });
         }
