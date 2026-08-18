@@ -8,6 +8,10 @@ from django.contrib.auth.password_validation import validate_password
 User = get_user_model()
 
 
+class TelInput(forms.TextInput):
+    input_type = "tel"
+
+
 class EmailAuthenticationForm(AuthenticationForm):
     """Вход по email: поле username формы принимает адрес почты."""
 
@@ -56,6 +60,7 @@ class SignUpForm(forms.ModelForm):
             "last_name",
             "first_name",
             "middle_name",
+            "telephone_number",
         )
         labels: ClassVar[dict[str, str]] = {
             "username": "Логин",
@@ -63,10 +68,31 @@ class SignUpForm(forms.ModelForm):
             "last_name": "Фамилия",
             "first_name": "Имя",
             "middle_name": "Отчество",
+            "telephone_number": "Телефон",
+        }
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "telephone_number": TelInput(
+                attrs={
+                    "autocomplete": "tel",
+                    "maxlength": "32",
+                }
+            ),
         }
         error_messages: ClassVar[dict[str, dict[str, str]]] = {
             "email": {"invalid": "Неверный формат электронной почты"},
         }
+
+    def clean_first_name(self):
+        return self._blank_to_none(self.cleaned_data.get("first_name"))
+
+    def clean_last_name(self):
+        return self._blank_to_none(self.cleaned_data.get("last_name"))
+
+    def clean_middle_name(self):
+        return self._blank_to_none(self.cleaned_data.get("middle_name"))
+
+    def clean_telephone_number(self):
+        return self._blank_to_none(self.cleaned_data.get("telephone_number"))
 
     def clean_password(self):
         password = self.cleaned_data["password"]
@@ -80,6 +106,13 @@ class SignUpForm(forms.ModelForm):
         if password and password_confirm and password != password_confirm:
             self.add_error("password_confirm", "Пароли не совпадают.")
         return cleaned
+
+    @staticmethod
+    def _blank_to_none(value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 class ForgotPasswordForm(forms.Form):

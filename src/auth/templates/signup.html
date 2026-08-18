@@ -97,6 +97,7 @@
 
         .field input[type="text"],
         .field input[type="email"],
+        .field input[type="tel"],
         .field input[type="password"] {
             width: 100%;
             height: 3rem;
@@ -290,13 +291,19 @@
                 {% endif %}
 
                 <div class="field">
-                    <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                    <label for="{{ form.username.id_for_label }}">
+                        {{ form.username.label }}
+                        <span class="optional">(обязательно)</span>
+                    </label>
                     {{ form.username }}
                     {{ form.username.errors }}
                 </div>
 
                 <div class="field">
-                    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                    <label for="{{ form.email.id_for_label }}">
+                        {{ form.email.label }}
+                        <span class="optional">(обязательно)</span>
+                    </label>
                     {{ form.email }}
                     {{ form.email.errors }}
                 </div>
@@ -314,16 +321,22 @@
                 </div>
 
                 <div class="field">
-                    <label for="{{ form.middle_name.id_for_label }}">
-                        {{ form.middle_name.label }}
-                        <span class="optional">(необязательно)</span>
-                    </label>
+                    <label for="{{ form.middle_name.id_for_label }}">{{ form.middle_name.label }}</label>
                     {{ form.middle_name }}
                     {{ form.middle_name.errors }}
                 </div>
 
                 <div class="field">
-                    <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                    <label for="{{ form.telephone_number.id_for_label }}">{{ form.telephone_number.label }}</label>
+                    {{ form.telephone_number }}
+                    {{ form.telephone_number.errors }}
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.password.id_for_label }}">
+                        {{ form.password.label }}
+                        <span class="optional">(обязательно)</span>
+                    </label>
                     <div class="password-field">
                         {{ form.password }}
                         <button
@@ -366,7 +379,10 @@
                 </div>
 
                 <div class="field">
-                    <label for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
+                    <label for="{{ form.password_confirm.id_for_label }}">
+                        {{ form.password_confirm.label }}
+                        <span class="optional">(обязательно)</span>
+                    </label>
                     <div class="password-field">
                         {{ form.password_confirm }}
                         <button

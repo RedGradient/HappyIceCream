@@ -15,9 +15,10 @@ class AuthService:
         user = User(
             username=data["username"],
             email=data["email"],
-            first_name=data["first_name"],
-            last_name=data["last_name"],
-            middle_name=data["middle_name"],
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            middle_name=data.get("middle_name"),
+            telephone_number=data.get("telephone_number"),
         )
         user.set_password(data["password"])
         user.email_confirmed = False
