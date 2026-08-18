@@ -206,7 +206,7 @@ class PromocodeView(APIView):
                 reason=PromoAttemptReason.NOT_FOUND,
             )
             cooldown_until = _register_failed_attempt(request)
-            payload: dict = {"detail": "Неверный промокод"}
+            payload: dict = {"detail": "Промокод не найден"}
             if cooldown_until is not None:
                 payload["cooldown_until"] = cooldown_until.isoformat()
             return Response(payload, status=status.HTTP_404_NOT_FOUND)
@@ -217,7 +217,7 @@ class PromocodeView(APIView):
                 reason=PromoAttemptReason.ALREADY_USED,
             )
             cooldown_until = _register_failed_attempt(request)
-            payload = {"detail": "Неверный промокод"}
+            payload = {"detail": "Промокод уже использован"}
             if cooldown_until is not None:
                 payload["cooldown_until"] = cooldown_until.isoformat()
             return Response(payload, status=status.HTTP_409_CONFLICT)
