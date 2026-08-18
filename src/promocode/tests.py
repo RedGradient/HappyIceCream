@@ -25,6 +25,7 @@ from promocode.models import (
 from promocode.services.analytics import (
     DAILY_SERIES_COLUMNS,
     METRIC_SPECS,
+    WINNERS_SHEET_COLUMNS,
     AnalyticsService,
 )
 from promocode.services.cabinet import CabinetService
@@ -795,13 +796,23 @@ class AnalyticsServiceTests(TestCase):
         )
 
         sheets = pd.read_excel(io.BytesIO(content), sheet_name=None)
-        self.assertEqual(set(sheets), {"Сводка", "По дням"})
+        self.assertEqual(set(sheets), {"Сводка", "По дням", "Победители"})
         self.assertEqual(list(sheets["Сводка"].columns), ["Показатель", "Значение"])
         self.assertEqual(len(sheets["По дням"]), 7)
         self.assertEqual(
             list(sheets["По дням"].columns),
             list(DAILY_SERIES_COLUMNS.values()),
         )
+        self.assertEqual(len(sheets["Победители"]), 1)
+        self.assertEqual(
+            list(sheets["Победители"].columns),
+            list(WINNERS_SHEET_COLUMNS.values()),
+        )
+        winner_row = sheets["Победители"].iloc[0]
+        self.assertEqual(winner_row["Логин"], "daily")
+        self.assertEqual(winner_row["Email"], "daily@example.com")
+        self.assertEqual(winner_row["Приз"], "AirPods")
+        self.assertEqual(winner_row["Промокод"], "DAILY001")
 
         workbook = load_workbook(io.BytesIO(content))
         summary_sheet = workbook["Сводка"]

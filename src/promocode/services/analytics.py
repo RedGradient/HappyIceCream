@@ -39,6 +39,17 @@ DAILY_SERIES_COLUMNS: dict[str, str] = {
     "draw_full": "Полный розыгрыш",
 }
 
+WINNERS_SHEET_COLUMNS: dict[str, str] = {
+    "date": "Дата",
+    "place": "Место",
+    "prize": "Приз",
+    "username": "Логин",
+    "email": "Email",
+    "full_name": "ФИО",
+    "telephone": "Телефон",
+    "promocode": "Промокод",
+}
+
 
 class MetricFormat(str, Enum):
     NUMBER = "number"
@@ -387,6 +398,48 @@ class AnalyticsService:
         return series
 
     @staticmethod
+    def winners_rows(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[dict[str, Any]]:
+        """Победители за период — строки для листа Excel."""
+        start, end = resolve_metrics_period(date_from, date_to)
+        draws = (
+            DailyDraw.objects.filter(
+                date__gte=start,
+                date__lte=end,
+                user__isnull=False,
+            )
+            .select_related("user", "promocode")
+            .order_by("date", "place")
+        )
+        rows: list[dict[str, Any]] = []
+        for draw in draws:
+            user = draw.user
+            name_parts = [
+                part
+                for part in (
+                    user.last_name,
+                    user.first_name,
+                    user.middle_name,
+                )
+                if part
+            ]
+            rows.append(
+                {
+                    "date": draw.date,
+                    "place": draw.place,
+                    "prize": draw.get_prize_display() if draw.prize else "—",
+                    "username": user.username,
+                    "email": user.email,
+                    "full_name": " ".join(name_parts) or "—",
+                    "telephone": user.telephone_number or "—",
+                    "promocode": draw.promocode.code if draw.promocode_id else "—",
+                }
+            )
+        return rows
+
+    @staticmethod
     def export_analytics_as_excel(
         date_from: date | None = None,
         date_to: date | None = None,
@@ -403,11 +456,17 @@ class AnalyticsService:
         daily_df = pd.DataFrame(
             AnalyticsService.daily_series(date_from=start, date_to=end)
         ).rename(columns=DAILY_SERIES_COLUMNS)
+        winners_df = pd.DataFrame(
+            AnalyticsService.winners_rows(date_from=start, date_to=end)
+        ).rename(columns=WINNERS_SHEET_COLUMNS)
+        if winners_df.empty:
+            winners_df = pd.DataFrame(columns=list(WINNERS_SHEET_COLUMNS.values()))
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             summary_df.to_excel(writer, sheet_name="Сводка", index=False)
             daily_df.to_excel(writer, sheet_name="По дням", index=False)
+            winners_df.to_excel(writer, sheet_name="Победители", index=False)
             for sheet in writer.sheets.values():
                 autofit_worksheet_columns(sheet)
 
