@@ -93,7 +93,11 @@ class AccountPasswordView(APIView):
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     def post(self, request):
-        serializer = ChangePasswordSerializer(data=request.data)
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            # Отправляем request в сериализатор, чтобы иметь в нем доступ к user
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
 
         try:

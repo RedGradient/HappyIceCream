@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Happy Ice Cream</title>
@@ -637,6 +638,53 @@
             background: var(--accent-deep);
         }
 
+        .password-form button:disabled,
+        .profile-form button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .password-rules {
+            display: none;
+            margin: 0.55rem 0 0;
+            padding: 0.65rem 0.75rem;
+            list-style: none;
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid var(--ring);
+            border-radius: var(--radius-lg);
+        }
+
+        .password-rules.is-visible {
+            display: grid;
+            gap: 0.35rem;
+        }
+
+        .password-rules__item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.45rem;
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .password-rules__mark {
+            flex: 0 0 auto;
+            width: 1rem;
+            text-align: center;
+        }
+
+        .password-rules__item.is-ok {
+            color: #1b7a4a;
+        }
+
+        .password-rules__item.is-bad {
+            color: var(--danger);
+        }
+
         .password-form__message,
         .profile-form__message {
             margin: 0;
@@ -980,8 +1028,9 @@
                                     </form>
                                 </section>
 
-                                <section class="account-panel" aria-label="Смена пароля">
+                <section class="account-panel" aria-label="Смена пароля">
                                     <h2 class="account-panel__title">Смена пароля</h2>
+                                    {{ password_user_attrs|json_script:"password-user-attrs" }}
                                     <form class="password-form" id="password-form">
                                         {% csrf_token %}
                                         <div class="field">
@@ -1003,6 +1052,29 @@
                                                 autocomplete="new-password"
                                                 required
                                             >
+                                            <ul
+                                                class="password-rules"
+                                                id="password-rules"
+                                                aria-live="polite"
+                                                hidden
+                                            >
+                                                <li class="password-rules__item" data-rule="length">
+                                                    <span class="password-rules__mark" aria-hidden="true">·</span>
+                                                    <span>Не менее 8 символов</span>
+                                                </li>
+                                                <li class="password-rules__item" data-rule="numeric">
+                                                    <span class="password-rules__mark" aria-hidden="true">·</span>
+                                                    <span>Не только цифры</span>
+                                                </li>
+                                                <li class="password-rules__item" data-rule="common">
+                                                    <span class="password-rules__mark" aria-hidden="true">·</span>
+                                                    <span>Не слишком простой</span>
+                                                </li>
+                                                <li class="password-rules__item" data-rule="similar">
+                                                    <span class="password-rules__mark" aria-hidden="true">·</span>
+                                                    <span>Не похож на логин, email или имя</span>
+                                                </li>
+                                            </ul>
                                         </div>
                                         <div class="field">
                                             <label for="new-password-confirm">Повтор нового пароля</label>
@@ -1617,6 +1689,17 @@
         const passwordForm = document.getElementById('password-form');
         if (passwordForm) {
             const passwordMessageEl = document.getElementById('password-message');
+            const newPasswordInput = document.getElementById('new-password');
+            const newPasswordConfirmInput = document.getElementById('new-password-confirm');
+            const passwordSubmit = document.getElementById('password-submit')
+                || passwordForm.querySelector('button[type="submit"]');
+            const passwordRulesEl = document.getElementById('password-rules');
+            const passwordUserAttrs = JSON.parse(
+                document.getElementById('password-user-attrs')?.textContent || '[]'
+            );
+            const commonPasswordsUrl = '{% static "auth/common-passwords.txt" %}';
+            let commonPasswords = null;
+            let commonPasswordsPromise = null;
 
             function setPasswordMessage(text, { success = false } = {}) {
                 passwordMessageEl.textContent = text || '';
@@ -1641,6 +1724,163 @@
                 return 'Не удалось сменить пароль';
             }
 
+            function quickRatio(a, b) {
+                if (!a.length && !b.length) {
+                    return 1;
+                }
+                const counts = new Map();
+                for (const ch of b) {
+                    counts.set(ch, (counts.get(ch) || 0) + 1);
+                }
+                let matches = 0;
+                for (const ch of a) {
+                    const left = counts.get(ch) || 0;
+                    if (left > 0) {
+                        counts.set(ch, left - 1);
+                        matches += 1;
+                    }
+                }
+                return (2 * matches) / (a.length + b.length);
+            }
+
+            function splitAttrParts(value) {
+                const parts = String(value).split(/[^\wа-яёА-ЯЁ]+/u).filter(Boolean);
+                return parts.length ? [...parts, String(value)] : [String(value)];
+            }
+
+            function checkSimilar(password) {
+                const lowered = password.toLowerCase();
+                for (const attr of passwordUserAttrs) {
+                    if (!attr || typeof attr !== 'string') {
+                        continue;
+                    }
+                    for (const part of splitAttrParts(attr)) {
+                        if (part.length < 1) {
+                            continue;
+                        }
+                        if (quickRatio(lowered, part.toLowerCase()) >= 0.7) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            async function ensureCommonPasswords() {
+                if (commonPasswords) {
+                    return commonPasswords;
+                }
+                if (!commonPasswordsPromise) {
+                    commonPasswordsPromise = fetch(commonPasswordsUrl, { credentials: 'same-origin' })
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error('common passwords load failed');
+                            }
+                            return response.text();
+                        })
+                        .then((text) => {
+                            commonPasswords = new Set(
+                                text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+                            );
+                            return commonPasswords;
+                        })
+                        .catch(() => {
+                            commonPasswords = new Set();
+                            return commonPasswords;
+                        });
+                }
+                return commonPasswordsPromise;
+            }
+
+            function evaluatePassword(password) {
+                return {
+                    length: password.length >= 8,
+                    numeric: password.length > 0 ? !/^\d+$/.test(password) : false,
+                    common: password.length > 0 && commonPasswords
+                        ? !commonPasswords.has(password.toLowerCase())
+                        : false,
+                    similar: password.length > 0 ? checkSimilar(password) : false,
+                };
+            }
+
+            function setPasswordRulesVisible(visible) {
+                if (!passwordRulesEl) {
+                    return;
+                }
+                passwordRulesEl.hidden = !visible;
+                passwordRulesEl.classList.toggle('is-visible', Boolean(visible));
+            }
+
+            function renderPasswordRules(results) {
+                if (!passwordRulesEl) {
+                    return;
+                }
+                passwordRulesEl.querySelectorAll('[data-rule]').forEach((item) => {
+                    const key = item.getAttribute('data-rule');
+                    const ok = Boolean(results[key]);
+                    item.classList.toggle('is-ok', ok);
+                    item.classList.toggle('is-bad', !ok);
+                    const mark = item.querySelector('.password-rules__mark');
+                    if (mark) {
+                        mark.textContent = ok ? '✓' : '·';
+                    }
+                });
+            }
+
+            function passwordMeetsRequirements(password) {
+                const results = evaluatePassword(password);
+                return Object.values(results).every(Boolean);
+            }
+
+            function updatePasswordSubmitState() {
+                if (!passwordSubmit || passwordSubmit.classList.contains('is-loading')) {
+                    return;
+                }
+                const password = newPasswordInput?.value || '';
+                const confirm = newPasswordConfirmInput?.value || '';
+                const oldPassword = passwordForm.old_password?.value || '';
+                const valid = Boolean(
+                    oldPassword
+                    && password
+                    && confirm
+                    && password === confirm
+                    && passwordMeetsRequirements(password)
+                );
+                passwordSubmit.disabled = !valid;
+            }
+
+            async function refreshPasswordIndicator() {
+                const password = newPasswordInput?.value || '';
+                const visible = password.length > 0;
+                setPasswordRulesVisible(visible);
+                if (!visible) {
+                    updatePasswordSubmitState();
+                    return;
+                }
+                await ensureCommonPasswords();
+                const results = evaluatePassword(password);
+                renderPasswordRules(results);
+                updatePasswordSubmitState();
+            }
+
+            if (newPasswordInput) {
+                newPasswordInput.addEventListener('input', () => {
+                    refreshPasswordIndicator();
+                });
+                newPasswordInput.addEventListener('focus', () => {
+                    if (newPasswordInput.value) {
+                        refreshPasswordIndicator();
+                    }
+                });
+            }
+            if (newPasswordConfirmInput) {
+                newPasswordConfirmInput.addEventListener('input', updatePasswordSubmitState);
+            }
+            if (passwordForm.old_password) {
+                passwordForm.old_password.addEventListener('input', updatePasswordSubmitState);
+            }
+            updatePasswordSubmitState();
+
             passwordForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 setPasswordMessage('');
@@ -1651,9 +1891,13 @@
                     new_password_confirm: passwordForm.new_password_confirm.value,
                 };
 
-                const submitButton = document.getElementById('password-submit')
-                    || passwordForm.querySelector('button[type="submit"]');
-                setButtonLoading(submitButton, true);
+                if (!passwordMeetsRequirements(body.new_password) || body.new_password !== body.new_password_confirm) {
+                    await refreshPasswordIndicator();
+                    setPasswordMessage('Новый пароль не соответствует требованиям');
+                    return;
+                }
+
+                setButtonLoading(passwordSubmit, true);
 
                 try {
                     const response = await fetch('{% url "api_account_password" %}', {
@@ -1673,9 +1917,12 @@
                     }
 
                     passwordForm.reset();
+                    setPasswordRulesVisible(false);
+                    updatePasswordSubmitState();
                     setPasswordMessage('Пароль обновлён', { success: true });
                 } finally {
-                    setButtonLoading(submitButton, false);
+                    setButtonLoading(passwordSubmit, false);
+                    updatePasswordSubmitState();
                 }
             });
         }

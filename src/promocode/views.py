@@ -67,6 +67,13 @@ def account(request):
         _clear_promo_guards(request)
         cooldown_until = None
 
+    # Это данные пользователя для фронтовой проверки «пароль не слишком похож на ваши данные»
+    password_user_attrs = [
+        value
+        for name in ("username", "first_name", "last_name", "email")
+        if (value := getattr(request.user, name, None))
+    ]
+
     return render(
         request,
         "account.html",
@@ -76,6 +83,7 @@ def account(request):
             "promo_cooldown_until": (
                 cooldown_until.isoformat() if cooldown_until else None
             ),
+            "password_user_attrs": password_user_attrs,
         },
     )
 

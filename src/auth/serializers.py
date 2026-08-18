@@ -1,5 +1,7 @@
 from typing import Any, ClassVar
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from auth.models import User
@@ -124,4 +126,11 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"new_password_confirm": "Пароли не совпадают."}
             )
+        user = self.context["request"].user
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                {"new_password": list(exc.messages)}
+            ) from exc
         return attrs
