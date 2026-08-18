@@ -205,42 +205,6 @@
             line-height: 1.4;
         }
 
-        .cta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 1.25rem;
-        }
-
-        .cta a {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 3rem;
-            padding: 0 1.25rem;
-            border-radius: var(--radius);
-            font-family: Sora, sans-serif;
-            font-weight: 700;
-            font-size: 0.95rem;
-            transition: background 160ms ease;
-        }
-
-        .cta__primary {
-            background: var(--accent);
-            color: #fff;
-            box-shadow: var(--shadow);
-        }
-
-        .cta__primary:hover {
-            background: var(--accent-deep);
-        }
-
-        .cta__secondary {
-            background: var(--glass);
-            color: var(--ink);
-            backdrop-filter: blur(10px);
-        }
-
         .winners {
             min-width: 0;
             color: #fff;
@@ -422,12 +386,6 @@
                         </div>
                     </li>
                 </ol>
-                <div class="cta">
-                    {% if not user.is_authenticated %}
-                        <a class="cta__primary" href="{% url 'login' %}">Войти</a>
-                        <a class="cta__secondary" href="{% url 'signup' %}">Зарегистрироваться</a>
-                    {% endif %}
-                </div>
             </div>
 
             <aside class="winners" aria-label="Победители розыгрыша">
