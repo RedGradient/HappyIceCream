@@ -50,16 +50,40 @@
     .analytics-toolbar {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: flex-end;
         gap: 0.75rem;
         margin: 0 0 1.25rem;
+    }
+
+    .analytics-period {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.65rem;
+    }
+
+    .analytics-period__field {
+        display: grid;
+        gap: 0.25rem;
+    }
+
+    .analytics-period__field label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--body-quiet-color, #666);
+    }
+
+    .analytics-period__field input {
+        min-height: 2.1rem;
+        padding: 0.35rem 0.55rem;
     }
 
     .analytics-toolbar .button,
     .analytics-toolbar a.button:link,
     .analytics-toolbar a.button:visited,
     .analytics-toolbar a.button:hover,
-    .analytics-toolbar a.button:focus {
+    .analytics-toolbar a.button:focus,
+    .analytics-period button {
         padding: 0.55rem 1.15rem;
         font-size: 0.875rem;
         font-weight: 600;
@@ -69,7 +93,23 @@
 </style>
 
 <div class="analytics-toolbar">
-    <a class="button" href="{% url 'admin:metrics_export_excel' %}">Выгрузить в Excel</a>
+    <form class="analytics-period" method="get" action="{% url 'admin:metrics' %}">
+        <div class="analytics-period__field">
+            <label for="{{ period_form.date_from.id_for_label }}">{{ period_form.date_from.label }}</label>
+            {{ period_form.date_from }}
+        </div>
+        <div class="analytics-period__field">
+            <label for="{{ period_form.date_to.id_for_label }}">{{ period_form.date_to.label }}</label>
+            {{ period_form.date_to }}
+        </div>
+        <button type="submit" class="button">Показать</button>
+    </form>
+    <a
+        class="button"
+        href="{% url 'admin:metrics_export_excel' %}?date_from={{ period_from|date:'Y-m-d' }}&date_to={{ period_to|date:'Y-m-d' }}"
+    >
+        Выгрузить в Excel
+    </a>
 </div>
 
 {% for section in sections %}

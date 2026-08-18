@@ -26,6 +26,7 @@ from promocode.services.winner import WINNERS_PER_DAY, WinnerService
 logger = logging.getLogger(__name__)
 
 DAILY_SERIES_DAYS = 30
+MAX_METRICS_PERIOD_DAYS = 366
 
 DAILY_SERIES_COLUMNS: dict[str, str] = {
     "date": "Дата",
@@ -78,13 +79,8 @@ METRIC_SPECS: tuple[MetricSpec, ...] = (
         "Промокоды",
     ),
     MetricSpec(
-        "activations_today",
-        "Промокодов активировано сегодня",
-        "Промокоды",
-    ),
-    MetricSpec(
-        "activations_7d",
-        "Промокодов активировано за 7 дней",
+        "activations_period",
+        "Промокодов активировано за период",
         "Промокоды",
     ),
     MetricSpec("free_promocodes", "Промокодов ещё не введено", "Промокоды"),
@@ -116,45 +112,30 @@ METRIC_SPECS: tuple[MetricSpec, ...] = (
         "Итоги розыгрышей",
     ),
     MetricSpec(
-        "winners_today",
-        "Победителей выбрано сегодня",
+        "winners_period",
+        "Победителей за период",
         "Итоги розыгрышей",
     ),
     MetricSpec("winners_airpods", "Выдали AirPods", "Итоги розыгрышей"),
     MetricSpec("winners_ozon", "Выдали купон OZON", "Итоги розыгрышей"),
     MetricSpec(
         "days_without_full_draw",
-        "Дней, когда выбрали меньше 2 победителей",
+        "Дней в периоде, когда выбрали меньше 2 победителей",
         "Итоги розыгрышей",
     ),
     MetricSpec(
-        "attempts_today",
-        "Ошибок ввода сегодня",
+        "attempts_period",
+        "Ошибок ввода за период",
         "Ошибки ввода промокода",
     ),
     MetricSpec(
-        "attempts_today_not_found",
-        "Сегодня ввели несуществующий код",
+        "attempts_period_not_found",
+        "За период: несуществующий код",
         "Ошибки ввода промокода",
     ),
     MetricSpec(
-        "attempts_today_already_used",
-        "Сегодня ввели уже использованный код",
-        "Ошибки ввода промокода",
-    ),
-    MetricSpec(
-        "attempts_7d",
-        "Ошибок ввода за 7 дней",
-        "Ошибки ввода промокода",
-    ),
-    MetricSpec(
-        "attempts_7d_not_found",
-        "За 7 дней: несуществующий код",
-        "Ошибки ввода промокода",
-    ),
-    MetricSpec(
-        "attempts_7d_already_used",
-        "За 7 дней: уже использованный код",
+        "attempts_period_already_used",
+        "За период: уже использованный код",
         "Ошибки ввода промокода",
     ),
 )
@@ -196,13 +177,42 @@ def autofit_worksheet_columns(
         worksheet.column_dimensions[get_column_letter(col_idx)].width = width
 
 
+def resolve_metrics_period(
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> tuple[date, date]:
+    """Возвращает включительный период; по умолчанию последние DAILY_SERIES_DAYS дней."""
+    today = timezone.localdate()
+    end = date_to or today
+    start = date_from or (end - timedelta(days=DAILY_SERIES_DAYS - 1))
+    if start > end:
+        start, end = end, start
+    span_days = (end - start).days + 1
+    if span_days > MAX_METRICS_PERIOD_DAYS:
+        start = end - timedelta(days=MAX_METRICS_PERIOD_DAYS - 1)
+    return start, end
+
+
+def period_datetime_bounds(date_from: date, date_to: date) -> tuple[datetime, datetime]:
+    """[start, end) в текущей таймзоне для фильтрации DateTimeField."""
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(date_from, time.min), tz)
+    end_dt = timezone.make_aware(
+        datetime.combine(date_to + timedelta(days=1), time.min),
+        tz,
+    )
+    return start_dt, end_dt
+
+
 class AnalyticsService:
     @staticmethod
-    def summary() -> dict[str, Any]:
+    def summary(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> dict[str, Any]:
         """Сводные метрики для админки."""
-
-        today = timezone.localdate()
-        week_ago = timezone.now() - timedelta(days=7)
+        start, end = resolve_metrics_period(date_from, date_to)
+        start_dt, end_dt = period_datetime_bounds(start, end)
         pool = WinnerService.current_pool_summary()
 
         users_profile_complete = (
@@ -217,11 +227,18 @@ class AnalyticsService:
             .count()
         )
 
-        attempts_today = PromoAttempt.objects.filter(created_at__date=today)
-        attempts_week = PromoAttempt.objects.filter(created_at__gte=week_ago)
+        attempts_period = PromoAttempt.objects.filter(
+            created_at__gte=start_dt,
+            created_at__lt=end_dt,
+        )
+        activations_period = PromoActivation.objects.filter(
+            created_at__gte=start_dt,
+            created_at__lt=end_dt,
+        )
 
         draw_days_incomplete = (
-            DailyDraw.objects.values("date")
+            DailyDraw.objects.filter(date__gte=start, date__lte=end)
+            .values("date")
             .annotate(winners=Count("id", filter=Q(user__isnull=False)))
             .filter(winners__lt=WINNERS_PER_DAY)
             .count()
@@ -236,20 +253,17 @@ class AnalyticsService:
             ),
             "users_winners": User.objects.filter(winner=True).count(),
             "activations_total": PromoActivation.objects.count(),
-            "activations_today": PromoActivation.objects.filter(
-                created_at__date=today
-            ).count(),
-            "activations_7d": PromoActivation.objects.filter(
-                created_at__gte=week_ago
-            ).count(),
+            "activations_period": activations_period.count(),
             "free_promocodes": Promocode.objects.filter(is_taken=False).count(),
             "pool_activations": pool["count"],
             "pool_unique_users": pool["unique_users"],
             "pool_activated_from": pool["activated_from"],
             "next_draw_at": pool["next_draw_at"],
             "winners_total": DailyDraw.objects.filter(user__isnull=False).count(),
-            "winners_today": DailyDraw.objects.filter(
-                date=today, user__isnull=False
+            "winners_period": DailyDraw.objects.filter(
+                date__gte=start,
+                date__lte=end,
+                user__isnull=False,
             ).count(),
             "winners_airpods": DailyDraw.objects.filter(
                 user__isnull=False, prize=Prize.AIRPODS
@@ -258,18 +272,11 @@ class AnalyticsService:
                 user__isnull=False, prize=Prize.OZON_COUPON
             ).count(),
             "days_without_full_draw": draw_days_incomplete,
-            "attempts_today": attempts_today.count(),
-            "attempts_7d": attempts_week.count(),
-            "attempts_today_not_found": attempts_today.filter(
+            "attempts_period": attempts_period.count(),
+            "attempts_period_not_found": attempts_period.filter(
                 reason=PromoAttemptReason.NOT_FOUND
             ).count(),
-            "attempts_today_already_used": attempts_today.filter(
-                reason=PromoAttemptReason.ALREADY_USED
-            ).count(),
-            "attempts_7d_not_found": attempts_week.filter(
-                reason=PromoAttemptReason.NOT_FOUND
-            ).count(),
-            "attempts_7d_already_used": attempts_week.filter(
+            "attempts_period_already_used": attempts_period.filter(
                 reason=PromoAttemptReason.ALREADY_USED
             ).count(),
         }
@@ -277,9 +284,16 @@ class AnalyticsService:
     @staticmethod
     def summary_sections(
         metrics: dict[str, Any] | None = None,
+        *,
+        date_from: date | None = None,
+        date_to: date | None = None,
     ) -> list[dict[str, Any]]:
         """Секции для UI/Excel: title + items (label, value, compact)."""
-        stats = metrics if metrics is not None else AnalyticsService.summary()
+        stats = (
+            metrics
+            if metrics is not None
+            else AnalyticsService.summary(date_from=date_from, date_to=date_to)
+        )
         sections: list[dict[str, Any]] = []
         current: dict[str, Any] | None = None
 
@@ -300,19 +314,18 @@ class AnalyticsService:
         return sections
 
     @staticmethod
-    def daily_series(days: int = DAILY_SERIES_DAYS) -> list[dict[str, Any]]:
-        """Посуточный ряд за последние `days` дней (включая сегодня)."""
-        if days < 1:
-            raise ValueError("days must be >= 1")
-
-        today = timezone.localdate()
-        start = today - timedelta(days=days - 1)
+    def daily_series(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[dict[str, Any]]:
+        """Посуточный ряд за выбранный период (включительно)."""
+        start, end = resolve_metrics_period(date_from, date_to)
         tz = timezone.get_current_timezone()
-        start_dt = timezone.make_aware(datetime.combine(start, time.min), tz)
+        start_dt, end_dt = period_datetime_bounds(start, end)
 
         def counts_by_day(queryset) -> dict[date, int]:
             rows = (
-                queryset.filter(created_at__gte=start_dt)
+                queryset.filter(created_at__gte=start_dt, created_at__lt=end_dt)
                 .annotate(day=TruncDate("created_at", tzinfo=tz))
                 .values("day")
                 .annotate(c=Count("id"))
@@ -323,7 +336,7 @@ class AnalyticsService:
         activations = counts_by_day(PromoActivation.objects.all())
 
         attempt_rows = (
-            PromoAttempt.objects.filter(created_at__gte=start_dt)
+            PromoAttempt.objects.filter(created_at__gte=start_dt, created_at__lt=end_dt)
             .annotate(day=TruncDate("created_at", tzinfo=tz))
             .values("day", "reason")
             .annotate(c=Count("id"))
@@ -346,7 +359,7 @@ class AnalyticsService:
             for row in (
                 DailyDraw.objects.filter(
                     date__gte=start,
-                    date__lte=today,
+                    date__lte=end,
                     user__isnull=False,
                 )
                 .values("date")
@@ -356,7 +369,7 @@ class AnalyticsService:
 
         series: list[dict[str, Any]] = []
         cursor = start
-        while cursor <= today:
+        while cursor <= end:
             winners = winners_by_day.get(cursor, 0)
             series.append(
                 {
@@ -374,8 +387,12 @@ class AnalyticsService:
         return series
 
     @staticmethod
-    def export_analytics_as_excel() -> tuple[bytes, str]:
-        metrics = AnalyticsService.summary()
+    def export_analytics_as_excel(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> tuple[bytes, str]:
+        start, end = resolve_metrics_period(date_from, date_to)
+        metrics = AnalyticsService.summary(date_from=start, date_to=end)
         summary_df = pd.DataFrame(
             [
                 (spec.label, format_metric_value(metrics[spec.key], spec.fmt))
@@ -383,9 +400,9 @@ class AnalyticsService:
             ],
             columns=["Показатель", "Значение"],
         )
-        daily_df = pd.DataFrame(AnalyticsService.daily_series()).rename(
-            columns=DAILY_SERIES_COLUMNS
-        )
+        daily_df = pd.DataFrame(
+            AnalyticsService.daily_series(date_from=start, date_to=end)
+        ).rename(columns=DAILY_SERIES_COLUMNS)
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -394,5 +411,5 @@ class AnalyticsService:
             for sheet in writer.sheets.values():
                 autofit_worksheet_columns(sheet)
 
-        filename = f"metrics-{timezone.localtime().strftime('%Y-%m-%d_%H-%M')}.xlsx"
+        filename = f"metrics-{start.isoformat()}_{end.isoformat()}.xlsx"
         return buffer.getvalue(), filename

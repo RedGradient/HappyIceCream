@@ -20,9 +20,14 @@ from config.tasks import (
     request_promo_gen_cancel,
 )
 from promocode.exceptions import WinnerAlreadySelectedToday
-from promocode.forms import ExcelFileForm, GeneratePromocodesForm, SeedTestDataForm
+from promocode.forms import (
+    ExcelFileForm,
+    GeneratePromocodesForm,
+    MetricsPeriodForm,
+    SeedTestDataForm,
+)
 from promocode.models import DailyDraw, PromoActivation, PromoAttempt, Promocode
-from promocode.services.analytics import AnalyticsService
+from promocode.services.analytics import AnalyticsService, resolve_metrics_period
 from promocode.services.cabinet import CabinetService
 from promocode.services.excel import ExcelService
 from promocode.services.testdata import TestDataService
@@ -285,12 +290,28 @@ def seed_test_data_view(request: HttpRequest) -> HttpResponseRedirect:
 
 
 def metrics_view(request: HttpRequest) -> HttpResponse:
-    stats = AnalyticsService.summary()
+    form = MetricsPeriodForm(request.GET or None)
+    date_from = date_to = None
+    if form.is_valid():
+        date_from = form.cleaned_data.get("date_from")
+        date_to = form.cleaned_data.get("date_to")
+    period_from, period_to = resolve_metrics_period(date_from, date_to)
+    form = MetricsPeriodForm(
+        data={
+            "date_from": period_from.isoformat(),
+            "date_to": period_to.isoformat(),
+        }
+    )
+
+    stats = AnalyticsService.summary(date_from=period_from, date_to=period_to)
     context = {
         **admin.site.each_context(request),
         "title": "Метрики",
         "stats": stats,
         "sections": AnalyticsService.summary_sections(stats),
+        "period_form": form,
+        "period_from": period_from,
+        "period_to": period_to,
     }
     return render(request, "admin/metrics.html", context)
 
@@ -317,7 +338,16 @@ def draw_pool_view(request: HttpRequest) -> HttpResponse:
 
 @require_GET
 def metrics_export_excel_view(request: HttpRequest) -> HttpResponse:
-    content, filename = AnalyticsService.export_analytics_as_excel()
+    form = MetricsPeriodForm(request.GET or None)
+    date_from = date_to = None
+    if form.is_valid():
+        date_from = form.cleaned_data.get("date_from")
+        date_to = form.cleaned_data.get("date_to")
+    period_from, period_to = resolve_metrics_period(date_from, date_to)
+    content, filename = AnalyticsService.export_analytics_as_excel(
+        date_from=period_from,
+        date_to=period_to,
+    )
     response = HttpResponse(
         content,
         content_type=(

@@ -24,7 +24,6 @@ from promocode.models import (
 )
 from promocode.services.analytics import (
     DAILY_SERIES_COLUMNS,
-    DAILY_SERIES_DAYS,
     METRIC_SPECS,
     AnalyticsService,
 )
@@ -706,12 +705,12 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(stats["users_profile_complete"], 1)
         self.assertEqual(stats["unique_participants"], 1)
         self.assertEqual(stats["activations_total"], 1)
-        self.assertEqual(stats["activations_today"], 1)
+        self.assertEqual(stats["activations_period"], 1)
         self.assertEqual(stats["pool_activations"], 1)
         self.assertEqual(stats["pool_unique_users"], 1)
-        self.assertEqual(stats["attempts_today"], 2)
-        self.assertEqual(stats["attempts_today_not_found"], 1)
-        self.assertEqual(stats["attempts_today_already_used"], 1)
+        self.assertEqual(stats["attempts_period"], 2)
+        self.assertEqual(stats["attempts_period_not_found"], 1)
+        self.assertEqual(stats["attempts_period_already_used"], 1)
         self.assertIsNotNone(stats["next_draw_at"])
 
         today = timezone.localdate()
@@ -723,7 +722,7 @@ class AnalyticsServiceTests(TestCase):
             promocode=promo,
         )
         stats_after_draw = AnalyticsService.summary()
-        self.assertEqual(stats_after_draw["winners_today"], 1)
+        self.assertEqual(stats_after_draw["winners_period"], 1)
         self.assertEqual(stats_after_draw["winners_airpods"], 1)
         self.assertEqual(stats_after_draw["days_without_full_draw"], 1)
         # Активация до розыгрыша не входит в новый пул
@@ -773,7 +772,10 @@ class AnalyticsServiceTests(TestCase):
             promocode=promo,
         )
 
-        series = AnalyticsService.daily_series(days=7)
+        series = AnalyticsService.daily_series(
+            date_from=today - timedelta(days=6),
+            date_to=today,
+        )
         self.assertEqual(len(series), 7)
         self.assertEqual(series[0]["date"], today - timedelta(days=6))
         self.assertEqual(series[-1]["date"], today)
@@ -783,14 +785,19 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(series[-1]["winners"], 1)
         self.assertEqual(series[-1]["draw_full"], 0)
 
-        content, filename = AnalyticsService.export_analytics_as_excel()
-        self.assertTrue(filename.startswith("metrics-"))
-        self.assertTrue(filename.endswith(".xlsx"))
+        content, filename = AnalyticsService.export_analytics_as_excel(
+            date_from=today - timedelta(days=6),
+            date_to=today,
+        )
+        self.assertEqual(
+            filename,
+            f"metrics-{(today - timedelta(days=6)).isoformat()}_{today.isoformat()}.xlsx",
+        )
 
         sheets = pd.read_excel(io.BytesIO(content), sheet_name=None)
         self.assertEqual(set(sheets), {"Сводка", "По дням"})
         self.assertEqual(list(sheets["Сводка"].columns), ["Показатель", "Значение"])
-        self.assertEqual(len(sheets["По дням"]), DAILY_SERIES_DAYS)
+        self.assertEqual(len(sheets["По дням"]), 7)
         self.assertEqual(
             list(sheets["По дням"].columns),
             list(DAILY_SERIES_COLUMNS.values()),
@@ -800,3 +807,13 @@ class AnalyticsServiceTests(TestCase):
         summary_sheet = workbook["Сводка"]
         self.assertGreater(summary_sheet.column_dimensions["A"].width, 10)
         self.assertGreaterEqual(summary_sheet.column_dimensions["B"].width, 10)
+
+        # События вне периода не попадают в period-метрики
+        outside = today - timedelta(days=40)
+        stats_outside = AnalyticsService.summary(
+            date_from=outside,
+            date_to=outside,
+        )
+        self.assertEqual(stats_outside["activations_period"], 0)
+        self.assertEqual(stats_outside["attempts_period"], 0)
+        self.assertEqual(stats_outside["winners_period"], 0)

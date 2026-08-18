@@ -24,3 +24,32 @@ class ExcelFileForm(forms.Form):
         label="Excel-файл",
         allow_empty_file=False,
     )
+
+
+class MetricsPeriodForm(forms.Form):
+    date_from = forms.DateField(
+        label="От",
+        required=False,
+        input_formats=["%Y-%m-%d", "%d.%m.%Y"],
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={"type": "date"},
+        ),
+    )
+    date_to = forms.DateField(
+        label="До",
+        required=False,
+        input_formats=["%Y-%m-%d", "%d.%m.%Y"],
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={"type": "date"},
+        ),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        date_from = cleaned.get("date_from")
+        date_to = cleaned.get("date_to")
+        if date_from and date_to and date_from > date_to:
+            cleaned["date_from"], cleaned["date_to"] = date_to, date_from
+        return cleaned
