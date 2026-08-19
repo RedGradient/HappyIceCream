@@ -152,8 +152,9 @@
 </div>
 
 <p class="analytics-hint">
-    Фильтр От–До влияет на таблицы «по дням» и попытки.
+    Фильтр От–До влияет на таблицы «по дням» и попытки (сводка).
     Воронка и призы «за всё время» — без фильтра.
+    Полный период — в Excel.
 </p>
 
 <h2 class="analytics-section">Воронка за всё время</h2>
@@ -167,7 +168,7 @@
     {% endfor %}
 </div>
 
-<h2 class="analytics-section">Воронка по дням</h2>
+<h2 class="analytics-section">Воронка по дням (последние {{ daily_rows_limit }} дней)</h2>
 <p class="analytics-hint">
     Пока заполнены только регистрации. Когорта (email → профиль → промокод → победа) — следующий этап.
 </p>
@@ -212,7 +213,7 @@
     </div>
 </div>
 
-<h2 class="analytics-section">Призы по дням</h2>
+<h2 class="analytics-section">Призы по дням (последние {{ daily_rows_limit }} дней)</h2>
 <table class="analytics-table">
     <thead>
         <tr>
@@ -249,6 +250,7 @@
         <p class="analytics-card__value">{{ attempts_summary.already_used }}</p>
     </div>
 </div>
+<h2 class="analytics-section">Неудачные попытки по дням (последние {{ daily_rows_limit }} дней)</h2>
 <table class="analytics-table">
     <thead>
         <tr>

@@ -26,6 +26,7 @@ from promocode.services.analytics import (
     FUNNEL_BY_DAY_COLUMNS,
     PRIZES_BY_DAY_COLUMNS,
     AnalyticsService,
+    truncate_daily_rows,
 )
 from promocode.services.cabinet import CabinetService
 from promocode.services.promocode import PromoCodeService
@@ -777,7 +778,7 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(
             set(sheets),
             {
-                "Воронка",
+                "Воронка (всего)",
                 "Воронка по дням",
                 "Призы",
                 "Призы по дням",
@@ -785,7 +786,7 @@ class AnalyticsServiceTests(TestCase):
             },
         )
         self.assertEqual(
-            list(sheets["Воронка"].columns),
+            list(sheets["Воронка (всего)"].columns),
             ["Шаг", "Значение", "% от регистраций"],
         )
         self.assertEqual(len(sheets["Воронка по дням"]), 7)
@@ -803,8 +804,30 @@ class AnalyticsServiceTests(TestCase):
         )
 
         workbook = load_workbook(io.BytesIO(content))
-        funnel_sheet = workbook["Воронка"]
+        funnel_sheet = workbook["Воронка (всего)"]
         self.assertGreater(funnel_sheet.column_dimensions["A"].width, 10)
+        self.assertTrue(funnel_sheet["A1"].font.bold)
+        self.assertTrue(workbook["Воронка по дням"]["A1"].font.bold)
+        self.assertTrue(workbook["Попытки"]["A1"].font.bold)
+
+        # Excel без усечения: длинный период целиком
+        long_start = today - timedelta(days=20)
+        long_content, _ = AnalyticsService.export_analytics_as_excel(
+            date_from=long_start,
+            date_to=today,
+        )
+        long_sheets = pd.read_excel(io.BytesIO(long_content), sheet_name=None)
+        self.assertEqual(len(long_sheets["Воронка по дням"]), 21)
+        self.assertEqual(
+            len(truncate_daily_rows(data["funnel_by_day"], limit=15)),
+            7,
+        )
+        truncated = truncate_daily_rows(
+            AnalyticsService.funnel_by_day(date_from=long_start, date_to=today)
+        )
+        self.assertEqual(len(truncated), 15)
+        self.assertEqual(truncated[-1]["date"], today)
+        self.assertEqual(truncated[0]["date"], today - timedelta(days=14))
 
         outside = today - timedelta(days=40)
         attempts_outside = AnalyticsService.attempts_summary(

@@ -6,6 +6,7 @@ import pandas as pd
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -19,6 +20,8 @@ from promocode.models import (
 
 DAILY_SERIES_DAYS = 30
 MAX_METRICS_PERIOD_DAYS = 366
+# В админке таблицы «по дням» показывают только хвост периода.
+ADMIN_DAILY_ROWS_LIMIT = 15
 
 FUNNEL_BY_DAY_COLUMNS: dict[str, str] = {
     "date": "Дата",
@@ -64,6 +67,25 @@ def autofit_worksheet_columns(
             max_len = max(max_len, len(str(cell.value)))
         width = min(max_width, max(min_width, max_len + padding))
         worksheet.column_dimensions[get_column_letter(col_idx)].width = width
+
+
+def bold_worksheet_header_rows(worksheet: Worksheet, *row_numbers: int) -> None:
+    """Делает жирным шрифт в указанных строках (обычно заголовки)."""
+    bold = Font(bold=True)
+    for row_number in row_numbers:
+        for cell in worksheet[row_number]:
+            cell.font = bold
+
+
+def truncate_daily_rows(
+    rows: list[Any],
+    *,
+    limit: int = ADMIN_DAILY_ROWS_LIMIT,
+) -> list[Any]:
+    """Оставляет последние limit строк (для UI админки)."""
+    if limit <= 0 or len(rows) <= limit:
+        return rows
+    return rows[-limit:]
 
 
 def resolve_metrics_period(
@@ -391,21 +413,25 @@ class AnalyticsService:
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            funnel_df.to_excel(writer, sheet_name="Воронка", index=False)
+            funnel_df.to_excel(writer, sheet_name="Воронка (всего)", index=False)
             funnel_by_day_df.to_excel(writer, sheet_name="Воронка по дням", index=False)
             prizes_df.to_excel(writer, sheet_name="Призы", index=False)
             prizes_by_day_df.to_excel(writer, sheet_name="Призы по дням", index=False)
 
             attempts_summary_df.to_excel(writer, sheet_name="Попытки", index=False)
-            start_row = len(attempts_summary_df) + 3
+            attempts_daily_header_row = len(attempts_summary_df) + 4
             attempts_by_day_df.to_excel(
                 writer,
                 sheet_name="Попытки",
                 index=False,
-                startrow=start_row,
+                startrow=attempts_daily_header_row - 1,
             )
-            for sheet in writer.sheets.values():
+            for sheet_name, sheet in writer.sheets.items():
                 autofit_worksheet_columns(sheet)
+                if sheet_name == "Попытки":
+                    bold_worksheet_header_rows(sheet, 1, attempts_daily_header_row)
+                else:
+                    bold_worksheet_header_rows(sheet, 1)
 
         filename = f"metrics-{start.isoformat()}_{end.isoformat()}.xlsx"
         return buffer.getvalue(), filename
