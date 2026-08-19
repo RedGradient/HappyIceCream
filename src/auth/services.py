@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import login
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -8,6 +10,8 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from auth.exceptions import IncorrectPassword
 from auth.models import User
 from auth.tokens import email_confirm_token_generator
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -24,7 +28,10 @@ class AuthService:
         user.email_confirmed = False
         user.save()
 
-        self._send_confirm_email(user, request)
+        try:
+            self._send_confirm_email(user, request)
+        except Exception:
+            logger.exception("Failed to send confirmation email to %s", user.email)
 
         return user
 
