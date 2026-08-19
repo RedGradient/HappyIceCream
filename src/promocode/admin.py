@@ -303,12 +303,16 @@ def metrics_view(request: HttpRequest) -> HttpResponse:
         }
     )
 
-    stats = AnalyticsService.summary(date_from=period_from, date_to=period_to)
+    data = AnalyticsService.dashboard(date_from=period_from, date_to=period_to)
     context = {
         **admin.site.each_context(request),
         "title": "Метрики",
-        "stats": stats,
-        "sections": AnalyticsService.summary_sections(stats),
+        "funnel_all_time": data["funnel_all_time"],
+        "funnel_by_day": data["funnel_by_day"],
+        "prizes_all_time": data["prizes_all_time"],
+        "prizes_by_day": data["prizes_by_day"],
+        "attempts_summary": data["attempts_summary"],
+        "attempts_by_day": data["attempts_by_day"],
         "period_form": form,
         "period_from": period_from,
         "period_to": period_to,

@@ -1,8 +1,5 @@
 import io
-import logging
-from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from enum import Enum
 from typing import Any
 
 import pandas as pd
@@ -16,158 +13,39 @@ from auth.models import User
 from promocode.models import (
     DailyDraw,
     Prize,
-    PromoActivation,
     PromoAttempt,
     PromoAttemptReason,
-    Promocode,
 )
-from promocode.services.winner import WINNERS_PER_DAY, WinnerService
-
-logger = logging.getLogger(__name__)
 
 DAILY_SERIES_DAYS = 30
 MAX_METRICS_PERIOD_DAYS = 366
 
-DAILY_SERIES_COLUMNS: dict[str, str] = {
+FUNNEL_BY_DAY_COLUMNS: dict[str, str] = {
     "date": "Дата",
-    "registrations": "Регистрации",
-    "activations": "Активации",
-    "attempts": "Ошибки ввода",
-    "attempts_not_found": "Несуществующий код",
-    "attempts_already_used": "Уже использованный код",
-    "winners": "Победителей",
-    "draw_full": "Полный розыгрыш",
+    "registrations": "Рег.",
+    "email_confirmed": "Email",
+    "email_pct": "Email %",
+    "profile_complete": "Профиль",
+    "profile_pct": "Профиль %",
+    "with_promocode": "Промокод",
+    "promo_pct": "Промокод %",
+    "winners": "Победа",
+    "win_pct": "Победа %",
 }
 
-WINNERS_SHEET_COLUMNS: dict[str, str] = {
+PRIZES_BY_DAY_COLUMNS: dict[str, str] = {
     "date": "Дата",
-    "place": "Место",
-    "prize": "Приз",
-    "username": "Логин",
-    "email": "Email",
-    "full_name": "ФИО",
-    "telephone": "Телефон",
-    "promocode": "Промокод",
+    "airpods": "AirPods",
+    "ozon": "OZON",
+    "total": "Всего",
 }
 
-
-class MetricFormat(str, Enum):
-    NUMBER = "number"
-    DATETIME = "datetime"
-    DATE = "date"
-
-
-@dataclass(frozen=True, slots=True)
-class MetricSpec:
-    key: str
-    label: str
-    section: str
-    fmt: MetricFormat = MetricFormat.NUMBER
-
-
-# Единый каталог метрик: UI и Excel берут подписи/секции отсюда.
-METRIC_SPECS: tuple[MetricSpec, ...] = (
-    MetricSpec("users_total", "Зарегистрировались", "Пользователи"),
-    MetricSpec("users_email_confirmed", "Подтвердили email", "Пользователи"),
-    MetricSpec(
-        "users_profile_complete",
-        "Заполнили ФИО, телефон, дату рождения и email",
-        "Пользователи",
-    ),
-    MetricSpec(
-        "unique_participants",
-        "Ввели хотя бы один промокод",
-        "Пользователи",
-    ),
-    MetricSpec(
-        "users_winners",
-        "Уже выиграли (больше не участвуют)",
-        "Пользователи",
-    ),
-    MetricSpec(
-        "activations_total",
-        "Промокодов активировано всего",
-        "Промокоды",
-    ),
-    MetricSpec(
-        "activations_period",
-        "Промокодов активировано за период",
-        "Промокоды",
-    ),
-    MetricSpec("free_promocodes", "Промокодов ещё не введено", "Промокоды"),
-    MetricSpec(
-        "pool_activations",
-        "Промокодов участвует в розыгрыше",
-        "Ближайший розыгрыш",
-    ),
-    MetricSpec(
-        "pool_unique_users",
-        "Людей участвует в розыгрыше",
-        "Ближайший розыгрыш",
-    ),
-    MetricSpec(
-        "pool_activated_from",
-        "Учитываются промокоды с",
-        "Ближайший розыгрыш",
-        MetricFormat.DATETIME,
-    ),
-    MetricSpec(
-        "next_draw_at",
-        "Когда следующий розыгрыш",
-        "Ближайший розыгрыш",
-        MetricFormat.DATETIME,
-    ),
-    MetricSpec(
-        "winners_total",
-        "Сколько раз выбрали победителя",
-        "Итоги розыгрышей",
-    ),
-    MetricSpec(
-        "winners_period",
-        "Победителей за период",
-        "Итоги розыгрышей",
-    ),
-    MetricSpec("winners_airpods", "Выдали AirPods", "Итоги розыгрышей"),
-    MetricSpec("winners_ozon", "Выдали купон OZON", "Итоги розыгрышей"),
-    MetricSpec(
-        "days_without_full_draw",
-        "Дней в периоде, когда выбрали меньше 2 победителей",
-        "Итоги розыгрышей",
-    ),
-    MetricSpec(
-        "attempts_period",
-        "Ошибок ввода за период",
-        "Ошибки ввода промокода",
-    ),
-    MetricSpec(
-        "attempts_period_not_found",
-        "За период: несуществующий код",
-        "Ошибки ввода промокода",
-    ),
-    MetricSpec(
-        "attempts_period_already_used",
-        "За период: уже использованный код",
-        "Ошибки ввода промокода",
-    ),
-)
-
-
-def format_metric_value(
-    value: Any,
-    fmt: MetricFormat = MetricFormat.NUMBER,
-) -> str:
-    if value is None:
-        return "—"
-    if fmt is MetricFormat.DATETIME:
-        if isinstance(value, datetime):
-            return timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
-        if isinstance(value, date):
-            return value.strftime("%d.%m.%Y")
-    if fmt is MetricFormat.DATE and isinstance(value, date | datetime):
-        if isinstance(value, datetime):
-            value = timezone.localtime(value).date()
-        return value.strftime("%d.%m.%Y")
-    return str(value)
+ATTEMPTS_BY_DAY_COLUMNS: dict[str, str] = {
+    "date": "Дата",
+    "total": "Всего",
+    "not_found": "Не найден",
+    "already_used": "Уже использован",
+}
 
 
 def autofit_worksheet_columns(
@@ -215,136 +93,208 @@ def period_datetime_bounds(date_from: date, date_to: date) -> tuple[datetime, da
     return start_dt, end_dt
 
 
+def _pct(part: int, whole: int) -> float:
+    if whole <= 0:
+        return 0.0
+    return round(100.0 * part / whole, 1)
+
+
+def _profile_complete_q() -> Q:
+    return (
+        Q(email_confirmed=True)
+        & Q(birth_date__isnull=False)
+        & ~Q(first_name="")
+        & Q(first_name__isnull=False)
+        & ~Q(last_name="")
+        & Q(last_name__isnull=False)
+        & ~Q(telephone_number__isnull=True)
+        & ~Q(telephone_number="")
+    )
+
+
 class AnalyticsService:
     @staticmethod
-    def summary(
+    def dashboard(
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> dict[str, Any]:
-        """Сводные метрики для админки."""
+        """Данные страницы метрик: 5 блоков (админка + Excel)."""
         start, end = resolve_metrics_period(date_from, date_to)
-        start_dt, end_dt = period_datetime_bounds(start, end)
-        pool = WinnerService.current_pool_summary()
-
-        users_profile_complete = (
-            User.objects.filter(
-                email_confirmed=True,
-                birth_date__isnull=False,
-            )
-            .exclude(first_name="")
-            .exclude(last_name="")
-            .exclude(telephone_number__isnull=True)
-            .exclude(telephone_number="")
-            .count()
-        )
-
-        attempts_period = PromoAttempt.objects.filter(
-            created_at__gte=start_dt,
-            created_at__lt=end_dt,
-        )
-        activations_period = PromoActivation.objects.filter(
-            created_at__gte=start_dt,
-            created_at__lt=end_dt,
-        )
-
-        draw_days_incomplete = (
-            DailyDraw.objects.filter(date__gte=start, date__lte=end)
-            .values("date")
-            .annotate(winners=Count("id", filter=Q(user__isnull=False)))
-            .filter(winners__lt=WINNERS_PER_DAY)
-            .count()
-        )
-
         return {
-            "users_total": User.objects.count(),
-            "users_email_confirmed": User.objects.filter(email_confirmed=True).count(),
-            "users_profile_complete": users_profile_complete,
-            "unique_participants": (
-                User.objects.filter(user_promocodes__isnull=False).distinct().count()
+            "period_from": start,
+            "period_to": end,
+            "funnel_all_time": AnalyticsService.funnel_all_time(),
+            "funnel_by_day": AnalyticsService.funnel_by_day(
+                date_from=start,
+                date_to=end,
             ),
-            "users_winners": User.objects.filter(winner=True).count(),
-            "activations_total": PromoActivation.objects.count(),
-            "activations_period": activations_period.count(),
-            "free_promocodes": Promocode.objects.filter(is_taken=False).count(),
-            "pool_activations": pool["count"],
-            "pool_unique_users": pool["unique_users"],
-            "pool_activated_from": pool["activated_from"],
-            "next_draw_at": pool["next_draw_at"],
-            "winners_total": DailyDraw.objects.filter(user__isnull=False).count(),
-            "winners_period": DailyDraw.objects.filter(
-                date__gte=start,
-                date__lte=end,
-                user__isnull=False,
-            ).count(),
-            "winners_airpods": DailyDraw.objects.filter(
-                user__isnull=False, prize=Prize.AIRPODS
-            ).count(),
-            "winners_ozon": DailyDraw.objects.filter(
-                user__isnull=False, prize=Prize.OZON_COUPON
-            ).count(),
-            "days_without_full_draw": draw_days_incomplete,
-            "attempts_period": attempts_period.count(),
-            "attempts_period_not_found": attempts_period.filter(
-                reason=PromoAttemptReason.NOT_FOUND
-            ).count(),
-            "attempts_period_already_used": attempts_period.filter(
-                reason=PromoAttemptReason.ALREADY_USED
-            ).count(),
+            "prizes_all_time": AnalyticsService.prizes_all_time(),
+            "prizes_by_day": AnalyticsService.prizes_by_day(
+                date_from=start,
+                date_to=end,
+            ),
+            "attempts_summary": AnalyticsService.attempts_summary(
+                date_from=start,
+                date_to=end,
+            ),
+            "attempts_by_day": AnalyticsService.attempts_by_day(
+                date_from=start,
+                date_to=end,
+            ),
         }
 
     @staticmethod
-    def summary_sections(
-        metrics: dict[str, Any] | None = None,
-        *,
-        date_from: date | None = None,
-        date_to: date | None = None,
-    ) -> list[dict[str, Any]]:
-        """Секции для UI/Excel: title + items (label, value, compact)."""
-        stats = (
-            metrics
-            if metrics is not None
-            else AnalyticsService.summary(date_from=date_from, date_to=date_to)
+    def funnel_all_time() -> list[dict[str, Any]]:
+        """Воронка за всё время (карточки)."""
+        registered = User.objects.count()
+        email_confirmed = User.objects.filter(email_confirmed=True).count()
+        profile_complete = User.objects.filter(_profile_complete_q()).count()
+        with_promocode = (
+            User.objects.filter(user_promocodes__isnull=False).distinct().count()
         )
-        sections: list[dict[str, Any]] = []
-        current: dict[str, Any] | None = None
+        winners = User.objects.filter(winner=True).count()
 
-        for spec in METRIC_SPECS:
-            if current is None or current["title"] != spec.section:
-                current = {"title": spec.section, "items": []}
-                sections.append(current)
-            raw = stats[spec.key]
-            current["items"].append(
-                {
-                    "key": spec.key,
-                    "label": spec.label,
-                    "raw": raw,
-                    "value": format_metric_value(raw, spec.fmt),
-                    "compact": spec.fmt is not MetricFormat.NUMBER,
-                }
-            )
-        return sections
+        steps = [
+            ("Зарегистрировались", registered),
+            ("Подтвердили email", email_confirmed),
+            ("Профиль заполнен", profile_complete),
+            ("Ввели ≥1 промокод", with_promocode),
+            ("Победители", winners),
+        ]
+        return [
+            {
+                "label": label,
+                "count": count,
+                "pct": _pct(count, registered),
+            }
+            for label, count in steps
+        ]
 
     @staticmethod
-    def daily_series(
+    def funnel_by_day(
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[dict[str, Any]]:
-        """Посуточный ряд за выбранный период (включительно)."""
-        start, end = resolve_metrics_period(date_from, date_to)
-        tz = timezone.get_current_timezone()
-        start_dt, end_dt = period_datetime_bounds(start, end)
+        """
+        Воронка по дням (этап 1 — каркас).
 
-        def counts_by_day(queryset) -> dict[date, int]:
-            rows = (
-                queryset.filter(created_at__gte=start_dt, created_at__lt=end_dt)
+        Сейчас: только число регистраций за день.
+        Шаги email/профиль/промокод/победа — заглушка (0);
+        когорта по дню регистрации появится на этапе 3.
+        """
+        start, end = resolve_metrics_period(date_from, date_to)
+        start_dt, end_dt = period_datetime_bounds(start, end)
+        tz = timezone.get_current_timezone()
+
+        registrations = {
+            row["day"]: row["c"]
+            for row in (
+                User.objects.filter(created_at__gte=start_dt, created_at__lt=end_dt)
                 .annotate(day=TruncDate("created_at", tzinfo=tz))
                 .values("day")
                 .annotate(c=Count("id"))
             )
-            return {row["day"]: row["c"] for row in rows if row["day"] is not None}
+            if row["day"] is not None
+        }
 
-        registrations = counts_by_day(User.objects.all())
-        activations = counts_by_day(PromoActivation.objects.all())
+        series: list[dict[str, Any]] = []
+        cursor = start
+        while cursor <= end:
+            reg = registrations.get(cursor, 0)
+            series.append(
+                {
+                    "date": cursor,
+                    "registrations": reg,
+                    "email_confirmed": 0,
+                    "email_pct": 0.0,
+                    "profile_complete": 0,
+                    "profile_pct": 0.0,
+                    "with_promocode": 0,
+                    "promo_pct": 0.0,
+                    "winners": 0,
+                    "win_pct": 0.0,
+                }
+            )
+            cursor += timedelta(days=1)
+        return series
+
+    @staticmethod
+    def prizes_all_time() -> dict[str, int]:
+        airpods = DailyDraw.objects.filter(
+            user__isnull=False,
+            prize=Prize.AIRPODS,
+        ).count()
+        ozon = DailyDraw.objects.filter(
+            user__isnull=False,
+            prize=Prize.OZON_COUPON,
+        ).count()
+        return {
+            "airpods": airpods,
+            "ozon": ozon,
+            "total": airpods + ozon,
+        }
+
+    @staticmethod
+    def prizes_by_day(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[dict[str, Any]]:
+        start, end = resolve_metrics_period(date_from, date_to)
+        rows = (
+            DailyDraw.objects.filter(
+                date__gte=start,
+                date__lte=end,
+                user__isnull=False,
+            )
+            .values("date")
+            .annotate(
+                airpods=Count("id", filter=Q(prize=Prize.AIRPODS)),
+                ozon=Count("id", filter=Q(prize=Prize.OZON_COUPON)),
+                total=Count("id"),
+            )
+        )
+        by_day = {row["date"]: row for row in rows}
+
+        series: list[dict[str, Any]] = []
+        cursor = start
+        while cursor <= end:
+            row = by_day.get(cursor)
+            series.append(
+                {
+                    "date": cursor,
+                    "airpods": row["airpods"] if row else 0,
+                    "ozon": row["ozon"] if row else 0,
+                    "total": row["total"] if row else 0,
+                }
+            )
+            cursor += timedelta(days=1)
+        return series
+
+    @staticmethod
+    def attempts_summary(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> dict[str, int]:
+        start, end = resolve_metrics_period(date_from, date_to)
+        start_dt, end_dt = period_datetime_bounds(start, end)
+        qs = PromoAttempt.objects.filter(
+            created_at__gte=start_dt,
+            created_at__lt=end_dt,
+        )
+        return {
+            "total": qs.count(),
+            "not_found": qs.filter(reason=PromoAttemptReason.NOT_FOUND).count(),
+            "already_used": qs.filter(reason=PromoAttemptReason.ALREADY_USED).count(),
+        }
+
+    @staticmethod
+    def attempts_by_day(
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[dict[str, Any]]:
+        start, end = resolve_metrics_period(date_from, date_to)
+        start_dt, end_dt = period_datetime_bounds(start, end)
+        tz = timezone.get_current_timezone()
 
         attempt_rows = (
             PromoAttempt.objects.filter(created_at__gte=start_dt, created_at__lt=end_dt)
@@ -352,121 +302,108 @@ class AnalyticsService:
             .values("day", "reason")
             .annotate(c=Count("id"))
         )
-        attempts_total: dict[date, int] = {}
-        attempts_not_found: dict[date, int] = {}
-        attempts_already_used: dict[date, int] = {}
+        totals: dict[date, int] = {}
+        not_found: dict[date, int] = {}
+        already_used: dict[date, int] = {}
         for row in attempt_rows:
             day = row["day"]
             if day is None:
                 continue
-            attempts_total[day] = attempts_total.get(day, 0) + row["c"]
+            totals[day] = totals.get(day, 0) + row["c"]
             if row["reason"] == PromoAttemptReason.NOT_FOUND:
-                attempts_not_found[day] = row["c"]
+                not_found[day] = row["c"]
             elif row["reason"] == PromoAttemptReason.ALREADY_USED:
-                attempts_already_used[day] = row["c"]
-
-        winners_by_day = {
-            row["date"]: row["c"]
-            for row in (
-                DailyDraw.objects.filter(
-                    date__gte=start,
-                    date__lte=end,
-                    user__isnull=False,
-                )
-                .values("date")
-                .annotate(c=Count("id"))
-            )
-        }
+                already_used[day] = row["c"]
 
         series: list[dict[str, Any]] = []
         cursor = start
         while cursor <= end:
-            winners = winners_by_day.get(cursor, 0)
             series.append(
                 {
                     "date": cursor,
-                    "registrations": registrations.get(cursor, 0),
-                    "activations": activations.get(cursor, 0),
-                    "attempts": attempts_total.get(cursor, 0),
-                    "attempts_not_found": attempts_not_found.get(cursor, 0),
-                    "attempts_already_used": attempts_already_used.get(cursor, 0),
-                    "winners": winners,
-                    "draw_full": int(winners >= WINNERS_PER_DAY),
+                    "total": totals.get(cursor, 0),
+                    "not_found": not_found.get(cursor, 0),
+                    "already_used": already_used.get(cursor, 0),
                 }
             )
             cursor += timedelta(days=1)
         return series
 
     @staticmethod
-    def winners_rows(
-        date_from: date | None = None,
-        date_to: date | None = None,
-    ) -> list[dict[str, Any]]:
-        """Победители за период — строки для листа Excel."""
-        start, end = resolve_metrics_period(date_from, date_to)
-        draws = (
-            DailyDraw.objects.filter(
-                date__gte=start,
-                date__lte=end,
-                user__isnull=False,
-            )
-            .select_related("user", "promocode")
-            .order_by("date", "place")
-        )
-        rows: list[dict[str, Any]] = []
-        for draw in draws:
-            user = draw.user
-            name_parts = [
-                part
-                for part in (
-                    user.last_name,
-                    user.first_name,
-                    user.middle_name,
-                )
-                if part
-            ]
-            rows.append(
-                {
-                    "date": draw.date,
-                    "place": draw.place,
-                    "prize": draw.get_prize_display() if draw.prize else "—",
-                    "username": user.username,
-                    "email": user.email,
-                    "full_name": " ".join(name_parts) or "—",
-                    "telephone": user.telephone_number or "—",
-                    "promocode": draw.promocode.code if draw.promocode_id else "—",
-                }
-            )
-        return rows
-
-    @staticmethod
     def export_analytics_as_excel(
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> tuple[bytes, str]:
-        start, end = resolve_metrics_period(date_from, date_to)
-        metrics = AnalyticsService.summary(date_from=start, date_to=end)
-        summary_df = pd.DataFrame(
+        data = AnalyticsService.dashboard(date_from=date_from, date_to=date_to)
+        start = data["period_from"]
+        end = data["period_to"]
+
+        funnel_df = pd.DataFrame(
             [
-                (spec.label, format_metric_value(metrics[spec.key], spec.fmt))
-                for spec in METRIC_SPECS
+                (row["label"], row["count"], row["pct"])
+                for row in data["funnel_all_time"]
+            ],
+            columns=["Шаг", "Значение", "% от регистраций"],
+        )
+
+        funnel_by_day_df = pd.DataFrame(data["funnel_by_day"]).rename(
+            columns=FUNNEL_BY_DAY_COLUMNS
+        )
+        if funnel_by_day_df.empty:
+            funnel_by_day_df = pd.DataFrame(
+                columns=list(FUNNEL_BY_DAY_COLUMNS.values())
+            )
+
+        prizes = data["prizes_all_time"]
+        prizes_df = pd.DataFrame(
+            [
+                ("AirPods", prizes["airpods"]),
+                ("Купон OZON", prizes["ozon"]),
+                ("Всего призов", prizes["total"]),
+            ],
+            columns=["Приз", "Значение"],
+        )
+
+        prizes_by_day_df = pd.DataFrame(data["prizes_by_day"]).rename(
+            columns=PRIZES_BY_DAY_COLUMNS
+        )
+        if prizes_by_day_df.empty:
+            prizes_by_day_df = pd.DataFrame(
+                columns=list(PRIZES_BY_DAY_COLUMNS.values())
+            )
+
+        attempts = data["attempts_summary"]
+        attempts_summary_df = pd.DataFrame(
+            [
+                ("Всего ошибок", attempts["total"]),
+                ("Код не найден", attempts["not_found"]),
+                ("Уже использован", attempts["already_used"]),
             ],
             columns=["Показатель", "Значение"],
         )
-        daily_df = pd.DataFrame(
-            AnalyticsService.daily_series(date_from=start, date_to=end)
-        ).rename(columns=DAILY_SERIES_COLUMNS)
-        winners_df = pd.DataFrame(
-            AnalyticsService.winners_rows(date_from=start, date_to=end)
-        ).rename(columns=WINNERS_SHEET_COLUMNS)
-        if winners_df.empty:
-            winners_df = pd.DataFrame(columns=list(WINNERS_SHEET_COLUMNS.values()))
+        attempts_by_day_df = pd.DataFrame(data["attempts_by_day"]).rename(
+            columns=ATTEMPTS_BY_DAY_COLUMNS
+        )
+        if attempts_by_day_df.empty:
+            attempts_by_day_df = pd.DataFrame(
+                columns=list(ATTEMPTS_BY_DAY_COLUMNS.values())
+            )
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            summary_df.to_excel(writer, sheet_name="Сводка", index=False)
-            daily_df.to_excel(writer, sheet_name="По дням", index=False)
-            winners_df.to_excel(writer, sheet_name="Победители", index=False)
+            funnel_df.to_excel(writer, sheet_name="Воронка", index=False)
+            funnel_by_day_df.to_excel(writer, sheet_name="Воронка по дням", index=False)
+            prizes_df.to_excel(writer, sheet_name="Призы", index=False)
+            prizes_by_day_df.to_excel(writer, sheet_name="Призы по дням", index=False)
+
+            attempts_summary_df.to_excel(writer, sheet_name="Попытки", index=False)
+            start_row = len(attempts_summary_df) + 3
+            attempts_by_day_df.to_excel(
+                writer,
+                sheet_name="Попытки",
+                index=False,
+                startrow=start_row,
+            )
             for sheet in writer.sheets.values():
                 autofit_worksheet_columns(sheet)
 

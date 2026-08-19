@@ -5,7 +5,7 @@
 <style>
     .analytics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
         gap: 1rem;
         margin: 0 0 1.5rem;
     }
@@ -16,7 +16,6 @@
         background: var(--body-bg, #fff);
         border: 1px solid var(--hairline-color, #e8e8e8);
         border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
     .analytics-card__label {
@@ -35,16 +34,28 @@
         color: var(--body-fg, #333);
     }
 
-    .analytics-card__value--sm {
-        font-size: 1.15rem;
+    .analytics-card__pct {
+        margin: 0.35rem 0 0;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.78rem;
     }
 
     .analytics-section {
-        margin: 0 0 0.75rem;
-        font-size: 0.9rem;
+        margin: 1.5rem 0 0.4rem;
+        font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
         color: var(--body-quiet-color, #666);
+    }
+
+    .analytics-section:first-of-type {
+        margin-top: 0.5rem;
+    }
+
+    .analytics-hint {
+        margin: 0 0 0.75rem;
+        color: var(--body-quiet-color, #666);
+        font-size: 0.8125rem;
     }
 
     .analytics-toolbar {
@@ -90,6 +101,34 @@
         line-height: 1.2;
         text-decoration: none;
     }
+
+    .analytics-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 1.5rem;
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #e8e8e8);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .analytics-table th,
+    .analytics-table td {
+        padding: 0.55rem 0.7rem;
+        text-align: left;
+        border-bottom: 1px solid var(--hairline-color, #e8e8e8);
+    }
+
+    .analytics-table th {
+        background: var(--darkened-bg, #f3f3f3);
+        font-size: 0.78rem;
+        color: var(--body-quiet-color, #666);
+        font-weight: 600;
+    }
+
+    .analytics-table tr:last-child td {
+        border-bottom: none;
+    }
 </style>
 
 <div class="analytics-toolbar">
@@ -112,17 +151,122 @@
     </a>
 </div>
 
-{% for section in sections %}
-    <h2 class="analytics-section">{{ section.title }}</h2>
-    <div class="analytics-grid">
-        {% for item in section.items %}
-            <div class="analytics-card">
-                <p class="analytics-card__label">{{ item.label }}</p>
-                <p class="analytics-card__value{% if item.compact %} analytics-card__value--sm{% endif %}">
-                    {{ item.value }}
-                </p>
-            </div>
+<p class="analytics-hint">
+    Фильтр От–До влияет на таблицы «по дням» и попытки.
+    Воронка и призы «за всё время» — без фильтра.
+</p>
+
+<h2 class="analytics-section">Воронка за всё время</h2>
+<div class="analytics-grid">
+    {% for item in funnel_all_time %}
+        <div class="analytics-card">
+            <p class="analytics-card__label">{{ item.label }}</p>
+            <p class="analytics-card__value">{{ item.count }}</p>
+            <p class="analytics-card__pct">от регистраций: {{ item.pct }}%</p>
+        </div>
+    {% endfor %}
+</div>
+
+<h2 class="analytics-section">Воронка по дням</h2>
+<p class="analytics-hint">
+    Пока заполнены только регистрации. Когорта (email → профиль → промокод → победа) — следующий этап.
+</p>
+<table class="analytics-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Рег.</th>
+            <th>Email</th>
+            <th>Профиль</th>
+            <th>Промокод</th>
+            <th>Победа</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in funnel_by_day %}
+            <tr>
+                <td>{{ row.date|date:"d.m.Y" }}</td>
+                <td>{{ row.registrations }}</td>
+                <td>{{ row.email_confirmed }} ({{ row.email_pct }}%)</td>
+                <td>{{ row.profile_complete }} ({{ row.profile_pct }}%)</td>
+                <td>{{ row.with_promocode }} ({{ row.promo_pct }}%)</td>
+                <td>{{ row.winners }} ({{ row.win_pct }}%)</td>
+            </tr>
         {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="analytics-section">Призы за всё время</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">AirPods</p>
+        <p class="analytics-card__value">{{ prizes_all_time.airpods }}</p>
     </div>
-{% endfor %}
+    <div class="analytics-card">
+        <p class="analytics-card__label">Купон OZON</p>
+        <p class="analytics-card__value">{{ prizes_all_time.ozon }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Всего призов</p>
+        <p class="analytics-card__value">{{ prizes_all_time.total }}</p>
+    </div>
+</div>
+
+<h2 class="analytics-section">Призы по дням</h2>
+<table class="analytics-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>AirPods</th>
+            <th>OZON</th>
+            <th>Всего</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in prizes_by_day %}
+            <tr>
+                <td>{{ row.date|date:"d.m.Y" }}</td>
+                <td>{{ row.airpods }}</td>
+                <td>{{ row.ozon }}</td>
+                <td>{{ row.total }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="analytics-section">Неудачные попытки</h2>
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <p class="analytics-card__label">Всего ошибок</p>
+        <p class="analytics-card__value">{{ attempts_summary.total }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Код не найден</p>
+        <p class="analytics-card__value">{{ attempts_summary.not_found }}</p>
+    </div>
+    <div class="analytics-card">
+        <p class="analytics-card__label">Уже использован</p>
+        <p class="analytics-card__value">{{ attempts_summary.already_used }}</p>
+    </div>
+</div>
+<table class="analytics-table">
+    <thead>
+        <tr>
+            <th>Дата</th>
+            <th>Всего</th>
+            <th>Не найден</th>
+            <th>Уже использован</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in attempts_by_day %}
+            <tr>
+                <td>{{ row.date|date:"d.m.Y" }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.not_found }}</td>
+                <td>{{ row.already_used }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}
