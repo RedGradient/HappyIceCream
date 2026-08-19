@@ -126,9 +126,27 @@ class AccountApiTests(TestCase):
         again = self.client.post(reverse("api_account_resend_confirm_email"))
         self.assertEqual(again.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
+    @patch("auth.services.send_mail", side_effect=OSError("smtp down"))
+    def test_resend_confirm_email_soft_fails(self, _send_mail_mock):
+        self.user.email_confirmed = False
+        self.user.save(update_fields=["email_confirmed"])
+
+        response = self.client.post(reverse("api_account_resend_confirm_email"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_resend_confirm_email_already_confirmed(self):
         self.user.email_confirmed = True
         self.user.save(update_fields=["email_confirmed"])
 
         response = self.client.post(reverse("api_account_resend_confirm_email"))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("auth.services.send_mail", side_effect=OSError("smtp down"))
+    def test_forgot_password_soft_fails(self, _send_mail_mock):
+        self.client.force_authenticate(user=None)
+        response = self.client.post(
+            reverse("forgot_password"),
+            {"email": self.user.email},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTemplateUsed(response, "forgot_password_done.html")
