@@ -14,6 +14,7 @@ from auth.models import User
 from promocode.models import (
     DailyDraw,
     Prize,
+    PromoActivation,
     PromoAttempt,
     PromoAttemptReason,
 )
@@ -134,6 +135,18 @@ def _profile_complete_q() -> Q:
     )
 
 
+def _is_profile_complete(user: dict[str, Any]) -> bool:
+    """Проверка заполненности профиля по полям из values()-словаря."""
+    if not user.get("email_confirmed"):
+        return False
+    if user.get("birth_date") is None:
+        return False
+    first_name = (user.get("first_name") or "").strip()
+    last_name = (user.get("last_name") or "").strip()
+    telephone = (user.get("telephone_number") or "").strip()
+    return bool(first_name and last_name and telephone)
+
+
 class AnalyticsService:
     @staticmethod
     def dashboard(
@@ -198,43 +211,87 @@ class AnalyticsService:
         date_to: date | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Воронка по дням (этап 1 — каркас).
+        Когортная воронка по дням регистрации.
 
-        Сейчас: только число регистраций за день.
-        Шаги email/профиль/промокод/победа — заглушка (0);
-        когорта по дню регистрации появится на этапе 3.
+        Для пользователей, зарегистрированных в день D, считаем, сколько
+        из них сейчас подтвердили email / заполнили профиль / ввели промокод /
+        стали победителями. % — от числа регистраций в этот день.
         """
         start, end = resolve_metrics_period(date_from, date_to)
         start_dt, end_dt = period_datetime_bounds(start, end)
         tz = timezone.get_current_timezone()
 
-        registrations = {
-            row["day"]: row["c"]
-            for row in (
-                User.objects.filter(created_at__gte=start_dt, created_at__lt=end_dt)
-                .annotate(day=TruncDate("created_at", tzinfo=tz))
-                .values("day")
-                .annotate(c=Count("id"))
+        users = list(
+            User.objects.filter(created_at__gte=start_dt, created_at__lt=end_dt)
+            .annotate(day=TruncDate("created_at", tzinfo=tz))
+            .values(
+                "id",
+                "day",
+                "email_confirmed",
+                "first_name",
+                "last_name",
+                "birth_date",
+                "telephone_number",
+                "winner",
             )
-            if row["day"] is not None
-        }
+        )
+        promo_user_ids = set(
+            PromoActivation.objects.filter(
+                user_id__in=[user["id"] for user in users]
+            ).values_list("user_id", flat=True)
+        )
+
+        by_day: dict[date, dict[str, int]] = {}
+        for user in users:
+            day = user["day"]
+            if day is None:
+                continue
+            bucket = by_day.setdefault(
+                day,
+                {
+                    "registrations": 0,
+                    "email_confirmed": 0,
+                    "profile_complete": 0,
+                    "with_promocode": 0,
+                    "winners": 0,
+                },
+            )
+            bucket["registrations"] += 1
+            if user["email_confirmed"]:
+                bucket["email_confirmed"] += 1
+            if _is_profile_complete(user):
+                bucket["profile_complete"] += 1
+            if user["id"] in promo_user_ids:
+                bucket["with_promocode"] += 1
+            if user["winner"]:
+                bucket["winners"] += 1
 
         series: list[dict[str, Any]] = []
         cursor = start
         while cursor <= end:
-            reg = registrations.get(cursor, 0)
+            bucket = by_day.get(
+                cursor,
+                {
+                    "registrations": 0,
+                    "email_confirmed": 0,
+                    "profile_complete": 0,
+                    "with_promocode": 0,
+                    "winners": 0,
+                },
+            )
+            reg = bucket["registrations"]
             series.append(
                 {
                     "date": cursor,
                     "registrations": reg,
-                    "email_confirmed": 0,
-                    "email_pct": 0.0,
-                    "profile_complete": 0,
-                    "profile_pct": 0.0,
-                    "with_promocode": 0,
-                    "promo_pct": 0.0,
-                    "winners": 0,
-                    "win_pct": 0.0,
+                    "email_confirmed": bucket["email_confirmed"],
+                    "email_pct": _pct(bucket["email_confirmed"], reg),
+                    "profile_complete": bucket["profile_complete"],
+                    "profile_pct": _pct(bucket["profile_complete"], reg),
+                    "with_promocode": bucket["with_promocode"],
+                    "promo_pct": _pct(bucket["with_promocode"], reg),
+                    "winners": bucket["winners"],
+                    "win_pct": _pct(bucket["winners"], reg),
                 }
             )
             cursor += timedelta(days=1)
@@ -418,17 +475,19 @@ class AnalyticsService:
             prizes_df.to_excel(writer, sheet_name="Призы", index=False)
             prizes_by_day_df.to_excel(writer, sheet_name="Призы по дням", index=False)
 
-            attempts_summary_df.to_excel(writer, sheet_name="Попытки", index=False)
+            attempts_summary_df.to_excel(
+                writer, sheet_name="Неудачные попытки", index=False
+            )
             attempts_daily_header_row = len(attempts_summary_df) + 4
             attempts_by_day_df.to_excel(
                 writer,
-                sheet_name="Попытки",
+                sheet_name="Неудачные попытки",
                 index=False,
                 startrow=attempts_daily_header_row - 1,
             )
             for sheet_name, sheet in writer.sheets.items():
                 autofit_worksheet_columns(sheet)
-                if sheet_name == "Попытки":
+                if sheet_name == "Неудачные попытки":
                     bold_worksheet_header_rows(sheet, 1, attempts_daily_header_row)
                 else:
                     bold_worksheet_header_rows(sheet, 1)

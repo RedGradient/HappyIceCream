@@ -26,6 +26,7 @@ from promocode.services.analytics import (
     FUNNEL_BY_DAY_COLUMNS,
     PRIZES_BY_DAY_COLUMNS,
     AnalyticsService,
+    period_datetime_bounds,
     truncate_daily_rows,
 )
 from promocode.services.cabinet import CabinetService
@@ -731,6 +732,74 @@ class AnalyticsServiceTests(TestCase):
         funnel_after = {row["label"]: row for row in AnalyticsService.funnel_all_time()}
         self.assertEqual(funnel_after["Победители"]["count"], 1)
 
+    def test_funnel_by_day_cohort(self):
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+
+        advanced = _create_user(
+            username="advanced",
+            email="advanced@example.com",
+            first_name="Ann",
+            last_name="Lee",
+            email_confirmed=True,
+            winner=True,
+        )
+        plain = _create_user(
+            username="plain",
+            email="plain@example.com",
+            first_name="",
+            last_name="",
+            birth_date=None,
+            telephone_number="",
+            email_confirmed=False,
+        )
+        # Оба зарегистрированы «сегодня» в рамках теста
+        User.objects.filter(pk__in=[advanced.pk, plain.pk]).update(
+            created_at=timezone.now(),
+        )
+
+        older = _create_user(
+            username="older",
+            email="older@example.com",
+            first_name="Old",
+            last_name="User",
+            email_confirmed=True,
+        )
+        # Переносим created_at на вчера
+        start_dt, _ = period_datetime_bounds(yesterday, yesterday)
+        User.objects.filter(pk=older.pk).update(created_at=start_dt)
+
+        promo = _create_promocode("COHORT01")
+        promo.is_taken = True
+        promo.save(update_fields=["is_taken"])
+        PromoActivation.objects.create(user=advanced, promocode=promo)
+
+        series = AnalyticsService.funnel_by_day(
+            date_from=yesterday,
+            date_to=today,
+        )
+        self.assertEqual(len(series), 2)
+
+        day_yesterday = series[0]
+        self.assertEqual(day_yesterday["date"], yesterday)
+        self.assertEqual(day_yesterday["registrations"], 1)
+        self.assertEqual(day_yesterday["email_confirmed"], 1)
+        self.assertEqual(day_yesterday["email_pct"], 100.0)
+        self.assertEqual(day_yesterday["with_promocode"], 0)
+        self.assertEqual(day_yesterday["winners"], 0)
+
+        day_today = series[1]
+        self.assertEqual(day_today["date"], today)
+        self.assertEqual(day_today["registrations"], 2)
+        self.assertEqual(day_today["email_confirmed"], 1)
+        self.assertEqual(day_today["email_pct"], 50.0)
+        self.assertEqual(day_today["profile_complete"], 1)
+        self.assertEqual(day_today["profile_pct"], 50.0)
+        self.assertEqual(day_today["with_promocode"], 1)
+        self.assertEqual(day_today["promo_pct"], 50.0)
+        self.assertEqual(day_today["winners"], 1)
+        self.assertEqual(day_today["win_pct"], 50.0)
+
     def test_dashboard_period_and_excel_sheets(self):
         today = timezone.localdate()
         user = _create_user(username="daily", email="daily@example.com")
@@ -759,8 +828,9 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(data["period_to"], today)
         self.assertEqual(len(data["funnel_by_day"]), 7)
         self.assertEqual(data["funnel_by_day"][-1]["date"], today)
-        # Этап 1: когорта ещё заглушка
-        self.assertEqual(data["funnel_by_day"][-1]["email_confirmed"], 0)
+        self.assertEqual(data["funnel_by_day"][-1]["registrations"], 1)
+        self.assertEqual(data["funnel_by_day"][-1]["with_promocode"], 1)
+        self.assertEqual(data["funnel_by_day"][-1]["promo_pct"], 100.0)
         self.assertEqual(data["prizes_by_day"][-1]["airpods"], 1)
         self.assertEqual(data["attempts_by_day"][-1]["total"], 1)
         self.assertEqual(data["attempts_by_day"][-1]["not_found"], 1)
@@ -782,7 +852,7 @@ class AnalyticsServiceTests(TestCase):
                 "Воронка по дням",
                 "Призы",
                 "Призы по дням",
-                "Попытки",
+                "Неудачные попытки",
             },
         )
         self.assertEqual(
@@ -799,7 +869,7 @@ class AnalyticsServiceTests(TestCase):
             list(PRIZES_BY_DAY_COLUMNS.values()),
         )
         self.assertEqual(
-            list(sheets["Попытки"].columns)[:2],
+            list(sheets["Неудачные попытки"].columns)[:2],
             ["Показатель", "Значение"],
         )
 
@@ -808,7 +878,7 @@ class AnalyticsServiceTests(TestCase):
         self.assertGreater(funnel_sheet.column_dimensions["A"].width, 10)
         self.assertTrue(funnel_sheet["A1"].font.bold)
         self.assertTrue(workbook["Воронка по дням"]["A1"].font.bold)
-        self.assertTrue(workbook["Попытки"]["A1"].font.bold)
+        self.assertTrue(workbook["Неудачные попытки"]["A1"].font.bold)
 
         # Excel без усечения: длинный период целиком
         long_start = today - timedelta(days=20)
