@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Метрики — макет</title>
+  <style>
+    :root {
+      --bg: #f8f8f8;
+      --fg: #333;
+      --quiet: #666;
+      --border: #e0e0e0;
+      --card: #fff;
+      --accent: #417690;
+      --btn: #79aec8;
+      --btn-hover: #609ab6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    .top {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      font-weight: 600;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 1.25rem; }
+    h1 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+    .hint { color: var(--quiet); font-size: 0.85rem; margin: 0 0 1.25rem; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: flex-end;
+      margin: 0 0 1.5rem;
+    }
+    label { display: grid; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; color: var(--quiet); }
+    input[type="date"] {
+      min-height: 2.1rem; padding: 0.35rem 0.55rem;
+      border: 1px solid var(--border); border-radius: 4px; background: #fff;
+    }
+    .btn {
+      display: inline-block; padding: 0.45rem 0.85rem; border-radius: 4px;
+      border: none; background: var(--btn); color: #fff; font-weight: 600;
+      text-decoration: none; cursor: default;
+    }
+    .btn--ghost { background: #fff; color: var(--accent); border: 1px solid var(--border); }
+    h2 {
+      margin: 1.75rem 0 0.4rem; font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--quiet);
+    }
+    .sub { color: var(--quiet); font-size: 0.8rem; margin: 0 0 0.75rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+      gap: 0.75rem;
+      margin: 0 0 0.5rem;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.9rem 1rem;
+    }
+    .card__label { margin: 0 0 0.35rem; color: var(--quiet); font-size: 0.78rem; font-weight: 600; }
+    .card__value { margin: 0; font-size: 1.65rem; font-weight: 700; line-height: 1.15; }
+    .card__pct { margin: 0.35rem 0 0; color: var(--quiet); font-size: 0.78rem; }
+    table {
+      width: 100%; border-collapse: collapse; background: var(--card);
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+      margin: 0 0 0.5rem;
+    }
+    th, td { padding: 0.55rem 0.7rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #f3f3f3; font-size: 0.78rem; color: var(--quiet); }
+    tr:last-child td { border-bottom: none; }
+    .excel {
+      margin-top: 1.75rem; padding: 1rem 1.1rem;
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    }
+    .excel h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+    .excel ol { margin: 0; padding-left: 1.2rem; color: var(--quiet); }
+  </style>
+</head>
+<body>
+  <div class="top">Happy Ice Cream · Админка · Метрики (макет)</div>
+  <div class="wrap">
+    <h1>Метрики</h1>
+    <p class="hint">Демо-данные. Воронка по дням = когорта по дню регистрации.</p>
+
+    <div class="toolbar">
+      <label>От <input type="date" value="2026-08-01"></label>
+      <label>До <input type="date" value="2026-08-19"></label>
+      <span class="btn">Показать</span>
+      <span class="btn btn--ghost">Скачать Excel</span>
+    </div>
+
+    <h2>1. Воронка за всё время</h2>
+    <p class="sub">Карточки · Excel: лист «Воронка»</p>
+    <div class="grid">
+      <div class="card"><p class="card__label">Зарегистрировались</p><p class="card__value">1240</p><p class="card__pct">100%</p></div>
+      <div class="card"><p class="card__label">Подтвердили email</p><p class="card__value">980</p><p class="card__pct">79%</p></div>
+      <div class="card"><p class="card__label">Профиль заполнен</p><p class="card__value">710</p><p class="card__pct">57%</p></div>
+      <div class="card"><p class="card__label">Ввели ≥1 промокод</p><p class="card__value">520</p><p class="card__pct">42%</p></div>
+      <div class="card"><p class="card__label">Победители</p><p class="card__value">48</p><p class="card__pct">3.9%</p></div>
+    </div>
+
+    <h2>2. Воронка по дням</h2>
+    <p class="sub">Кто зарегистрировался в день → сколько дошло до шага · Excel: «Воронка по дням»</p>
+    <table>
+      <thead>
+        <tr><th>Дата</th><th>Рег.</th><th>Email</th><th>Профиль</th><th>Промокод</th><th>Победа</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>17.08</td><td>42</td><td>38 (90%)</td><td>29 (69%)</td><td>21 (50%)</td><td>1 (2%)</td></tr>
+        <tr><td>18.08</td><td>55</td><td>47 (85%)</td><td>33 (60%)</td><td>24 (44%)</td><td>2 (4%)</td></tr>
+        <tr><td>19.08</td><td>31</td><td>28 (90%)</td><td>22 (71%)</td><td>18 (58%)</td><td>0 (0%)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Призы за всё время</h2>
+    <p class="sub">Excel: лист «Призы»</p>
+    <div class="grid">
+      <div class="card"><p class="card__label">AirPods</p><p class="card__value">24</p></div>
+      <div class="card"><p class="card__label">Купон OZON</p><p class="card__value">24</p></div>
+      <div class="card"><p class="card__label">Всего призов</p><p class="card__value">48</p></div>
+    </div>
+
+    <h2>4. Призы по дням</h2>
+    <p class="sub">Excel: лист «Призы по дням»</p>
+    <table>
+      <thead><tr><th>Дата</th><th>AirPods</th><th>OZON</th><th>Всего</th></tr></thead>
+      <tbody>
+        <tr><td>17.08</td><td>1</td><td>1</td><td>2</td></tr>
+        <tr><td>18.08</td><td>1</td><td>1</td><td>2</td></tr>
+        <tr><td>19.08</td><td>0</td><td>0</td><td>0</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. Неудачные попытки</h2>
+    <p class="sub">Сводка + по дням · Excel: лист «Неудачные попытки»</p>
+    <div class="grid">
+      <div class="card"><p class="card__label">Всего ошибок</p><p class="card__value">192</p></div>
+      <div class="card"><p class="card__label">Код не найден</p><p class="card__value">123</p></div>
+      <div class="card"><p class="card__label">Уже использован</p><p class="card__value">69</p></div>
+    </div>
+    <table>
+      <thead><tr><th>Дата</th><th>Всего</th><th>Не найден</th><th>Уже использован</th></tr></thead>
+      <tbody>
+        <tr><td>17.08</td><td>64</td><td>41</td><td>23</td></tr>
+        <tr><td>18.08</td><td>81</td><td>52</td><td>29</td></tr>
+        <tr><td>19.08</td><td>47</td><td>30</td><td>17</td></tr>
+      </tbody>
+    </table>
+
+    <div class="excel">
+      <h3>Excel — 5 листов</h3>
+      <ol>
+        <li>Воронка</li>
+        <li>Воронка по дням</li>
+        <li>Призы</li>
+        <li>Призы по дням</li>
+        <li>Неудачные попытки</li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>
