@@ -27,12 +27,7 @@ class AuthService:
         user.set_password(data["password"])
         user.email_confirmed = False
         user.save()
-
-        try:
-            self._send_confirm_email(user, request)
-        except Exception:
-            logger.exception("Failed to send confirmation email to %s", user.email)
-
+        self._send_confirm_email(user, request)
         return user
 
     @staticmethod
@@ -106,15 +101,21 @@ class AuthService:
             return
 
         reset_url = AuthService._build_password_reset_url(user, request)
-        send_mail(
-            subject="Сброс пароля — Happy Ice Cream",
-            message=(
-                f"Перейдите по ссылке для смены пароля:\n{reset_url}\n\n"
-                "Если это были не вы, проигнорируйте письмо."
-            ),
-            from_email=None,
-            recipient_list=[user.email],
-        )
+        try:
+            send_mail(
+                subject="Сброс пароля — Happy Ice Cream",
+                message=(
+                    f"Перейдите по ссылке для смены пароля:\n{reset_url}\n\n"
+                    "Если это были не вы, проигнорируйте письмо."
+                ),
+                from_email=None,
+                recipient_list=[user.email],
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send password reset email to %s",
+                user.email,
+            )
 
     @staticmethod
     def resend_confirm_email(user: User, request) -> None:
@@ -125,12 +126,18 @@ class AuthService:
     @staticmethod
     def _send_confirm_email(user: User, request):
         confirm_url = AuthService._build_confirm_url(user, request)
-        send_mail(
-            subject="Подтвердите регистрацию",
-            message=f"Перейдите по ссылке: {confirm_url}",
-            from_email=None,
-            recipient_list=[user.email],
-        )
+        try:
+            send_mail(
+                subject="Подтвердите регистрацию",
+                message=f"Перейдите по ссылке: {confirm_url}",
+                from_email=None,
+                recipient_list=[user.email],
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send confirmation email to %s",
+                user.email,
+            )
 
     @staticmethod
     def _build_confirm_url(user: User, request) -> str:
