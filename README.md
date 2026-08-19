@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshot.png" alt="Список операций">
+  <img src="docs/screenshot.png" alt="Happy Ice Cream — лендинг">
 </p>
 
 # Happy Ice Cream
@@ -8,14 +8,18 @@
 
 ## Возможности
 
-- Лендинг `/`, вход `/login/`, регистрация `/signup/`
+- Лендинг `/`, вход `/login/`, регистрация `/signup/` (телефон и ФИО на регистрации необязательны)
 - Личный кабинет `/account/`: ввод промокода, список кодов (устаревшие для текущего пула приглушены), статус участия, профиль, смена пароля, подписка на email
 - Для активации промокода нужны подтверждённый email, ФИО, дата рождения и телефон
-- Подтверждение email, восстановление пароля
+- Подтверждение email, восстановление пароля; на формах пароля — индикатор правил и показ/скрытие текста
 - Кулдаун при неверных кодах: 3 ошибки за минуту → пауза 5 минут (с таймером в UI); неудачные попытки пишутся в `PromoAttempt`
 - Ежедневный розыгрыш (Celery Beat, **00:00 Europe/Moscow**): до **2** победителей в день, призы AirPods и купон OZON
 - В пул входят активации с момента предыдущего розыгрыша у пользователей, которые ещё не выигрывали
-- Админка `/admin/`: метрики и Excel-выгрузка, пул розыгрыша, генерация промокодов, импорт Excel, ручной выбор победителя (опционально с email), seed тестовых участников (`ALLOW_TEST_SEED`)
+- Админка `/admin/`:
+  - метрики с фильтром **От–До** и Excel-выгрузкой (листы **Сводка**, **По дням**, **Победители**)
+  - пул розыгрыша, генерация промокодов, импорт Excel
+  - ручной выбор победителя (опционально с email)
+  - seed тестовых участников (`ALLOW_TEST_SEED`)
 
 ## Стек
 
@@ -39,7 +43,8 @@ docker compose up --build -d
 
 | URL | Назначение |
 |-----|------------|
-| http://localhost:8000/ | приложение (`WEB_PORT` в `.env`) |
+| http://localhost:8000/ | приложение напрямую (`WEB_PORT` в `.env`) |
+| http://localhost/ | через nginx (порт `80`) |
 | http://localhost:8000/admin/ | админка |
 
 При старте `web` выполняются `migrate` и `collectstatic`.
@@ -62,11 +67,13 @@ docker compose down
 | Сервис | Роль |
 |--------|------|
 | `web` | Gunicorn, внутри контейнера порт `8000` |
-| `nginx` | reverse proxy, порт `80` |
+| `nginx` | reverse proxy: `80` (HTTP) и `443` (HTTPS, сертификаты Let's Encrypt с хоста) |
 | `db` | PostgreSQL |
 | `redis` | брокер Celery |
 | `celery` | worker |
 | `beat` | расписание розыгрыша |
+
+На VPS nginx ожидает сертификаты в `/etc/letsencrypt` (см. `nginx/nginx.conf`). Локально без сертификатов HTTPS на `443` может не подняться — для разработки достаточно `WEB_PORT` или HTTP на `80`, если конфиг упрощён.
 
 ## Переменные окружения
 
@@ -95,22 +102,10 @@ docker compose down
 ## Почта (Resend)
 
 1. Домен должен быть верифицирован в [Resend](https://resend.com/domains).
-2. В `.env` укажите `RESEND_API_KEY` и `DEFAULT_FROM_EMAIL` с адресом **вашего** домена (не `resend.dev`, если шлёте реальным пользователям).
+2. В `.env` укажите `RESEND_API_KEY` и `DEFAULT_FROM_EMAIL` с адресом **вашего** домена (не `resend.dev`, если шлёте реальным пользователям). Если `RESEND_API_KEY` не задан, письма печатаются в логи `web`/`celery`.
 3. Перезапустите `web` и `celery` (письма уходят и из HTTP-запросов, и из задач).
 
-На тестовом API Resend нельзя слать на адреса вроде `example.com`. Сбой отправки email не отменяет розыгрыш и активацию промокода.
-
-Проверка:
-
-```bash
-docker compose exec web python manage.py shell -c "
-from django.core.mail import send_mail
-send_mail('Test', 'Hello from Happy Ice Cream', None, ['YOUR_EMAIL@example.com'])
-print('sent')
-"
-```
-
-Если `RESEND_API_KEY` не задан, письма печатаются в логи `web`/`celery`.
+Сбой отправки email **не отменяет** регистрацию (ошибка пишется в лог). При тестировании можно "подтвердить" email через админку, поставив соответствующую галочку на странице пользователя.
 
 ## Локальный запуск без Compose
 
@@ -127,42 +122,6 @@ cd src
 python manage.py migrate
 python manage.py runserver
 ```
-
-Celery (из каталога `src/`):
-
-```bash
-celery -A config worker -l info
-celery -A config beat -l info
-```
-
-## Структура
-
-```
-├── docker-compose.yml
-├── Dockerfile
-├── docker/entrypoint.sh
-├── nginx/
-├── docs/
-├── .env.example
-├── requirements.txt
-├── requirements-dev.txt
-└── src/
-    ├── manage.py
-    ├── config/          # settings, urls, celery, tasks
-    ├── auth/            # пользователи, сессии, профиль
-    ├── promocode/       # промокоды, кабинет, розыгрыш, метрики
-    └── templates/admin/ # кастомные страницы админки
-```
-
-Статика приложений лежит в `*/static/`. `collectstatic` собирает файлы в `src/staticfiles/` (в git не коммитится); в Docker их отдаёт WhiteNoise.
-
-## Деплой (GitHub Actions → VPS)
-
-При push в `master` Actions по SSH делает на сервере `git pull` (reset to `origin/master`) и `docker compose up -d --build`.
-
-На VPS один раз: клон репозитория, `.env`, ручной `docker compose up -d --build`, SSH-ключ для Actions в `authorized_keys`, deploy key для `git fetch` с GitHub.
-
-Secrets репозитория: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_APP_PATH` (каталог приложения, например `/opt/happyicecream`), опционально `VPS_PORT` (по умолчанию `22`).
 
 ## Разработка
 
