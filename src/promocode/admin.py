@@ -27,7 +27,12 @@ from promocode.forms import (
     SeedTestDataForm,
 )
 from promocode.models import DailyDraw, PromoActivation, PromoAttempt, Promocode
-from promocode.services.analytics import AnalyticsService, resolve_metrics_period
+from promocode.services.analytics import (
+    ADMIN_DAILY_ROWS_LIMIT,
+    AnalyticsService,
+    resolve_metrics_period,
+    truncate_daily_rows,
+)
 from promocode.services.cabinet import CabinetService
 from promocode.services.excel import ExcelService
 from promocode.services.testdata import TestDataService
@@ -303,12 +308,17 @@ def metrics_view(request: HttpRequest) -> HttpResponse:
         }
     )
 
-    stats = AnalyticsService.summary(date_from=period_from, date_to=period_to)
+    data = AnalyticsService.dashboard(date_from=period_from, date_to=period_to)
     context = {
         **admin.site.each_context(request),
         "title": "Метрики",
-        "stats": stats,
-        "sections": AnalyticsService.summary_sections(stats),
+        "funnel_all_time": data["funnel_all_time"],
+        "funnel_by_day": truncate_daily_rows(data["funnel_by_day"]),
+        "prizes_all_time": data["prizes_all_time"],
+        "prizes_by_day": truncate_daily_rows(data["prizes_by_day"]),
+        "attempts_summary": data["attempts_summary"],
+        "attempts_by_day": truncate_daily_rows(data["attempts_by_day"]),
+        "daily_rows_limit": ADMIN_DAILY_ROWS_LIMIT,
         "period_form": form,
         "period_from": period_from,
         "period_to": period_to,
